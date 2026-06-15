@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claims Intelligence — Xclaim</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#f4f6fc; --bg2:#eceffb; --card:#ffffff; --line:#e4e8f4; --line2:#eef1fa;
+    --ink:#1f2540; --ink-soft:#454d6e; --muted:#737c9e; --faint:#a3abc7;
+    --p1:#5b5bd6; --p1s:#ebebfb;   /* indigo */
+    --p2:#0bb8a6; --p2s:#dcf7f2;   /* teal */
+    --p3:#ff6b5e; --p3s:#ffe6e2;   /* coral */
+    --p4:#ffb020; --p4s:#fff2d6;   /* gold */
+    --p5:#8b5cf6; --p5s:#efe8fe;   /* purple */
+    --p6:#3b82f6; --p6s:#e2edfe;   /* blue */
+    --p7:#22c55e; --p7s:#dcfae8;   /* green */
+    --p8:#ec4899; --p8s:#fde4f1;   /* pink */
+    --good:#16a34a; --bad:#ef4444; --warn:#f59e0b;
+    --r:16px; --sh:0 1px 2px rgba(31,37,64,.04),0 8px 26px rgba(31,37,64,.07); --sh-sm:0 1px 3px rgba(31,37,64,.06);
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  }
+  *{box-sizing:border-box} html,body{margin:0;padding:0}
+  body{background:var(--bg); color:var(--ink); font-family:"Inter","Segoe UI",system-ui,sans-serif; font-size:14px; line-height:1.45; -webkit-font-smoothing:antialiased}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+  header.top{position:sticky; top:0; z-index:50; background:linear-gradient(115deg,#e9ebff 0%,#dcf7f2 48%,#ffe9e3 100%); border-bottom:1px solid var(--line); padding:12px 22px; display:flex; align-items:center; gap:14px; flex-wrap:wrap}
+  .brand{display:flex; align-items:baseline; gap:10px}
+  .brand b{font-size:20px; font-weight:800; letter-spacing:.01em; background:linear-gradient(90deg,var(--p1),var(--p2)); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent}
+  .brand span{font-size:10px; color:var(--muted); letter-spacing:.2em; text-transform:uppercase; font-weight:700}
+  .top .spacer{flex:1}
+  .ctrl{display:flex; align-items:center; gap:7px}
+  .ctrl label{font-size:10px; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); font-weight:700}
+  .ctrl input,.ctrl select{background:#fff; color:var(--ink); border:1px solid var(--line); border-radius:9px; padding:7px 9px; font:inherit; font-size:12px}
+  .upload-btn{background:var(--p1); color:#fff; border:none; border-radius:10px; padding:9px 16px; font-weight:700; cursor:pointer; font-size:13px; box-shadow:0 5px 14px rgba(91,91,214,.32)}
+  .upload-btn:hover{filter:brightness(1.06)}
+  #fileName{font-size:11px; color:var(--muted)}
+  .switch{display:inline-flex; align-items:center; gap:8px; cursor:pointer; user-select:none}
+  .switch .track{width:40px;height:22px;border-radius:999px;background:#cfd6ec;position:relative;transition:.2s}
+  .switch .track::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:.2s}
+  .switch.on .track{background:var(--p2)} .switch.on .track::after{transform:translateX(18px)}
+  .switch b{font-size:11px;font-weight:800;letter-spacing:.04em;color:var(--ink-soft)}
+
+  nav.tabs{position:sticky; top:56px; z-index:40; background:var(--bg); display:flex; gap:3px; padding:8px 16px 0; border-bottom:1px solid var(--line); flex-wrap:wrap}
+  nav.tabs button{background:none; border:none; padding:11px 14px 12px; cursor:pointer; font:inherit; font-weight:700; font-size:13px; color:var(--muted); border-radius:11px 11px 0 0}
+  nav.tabs button .n{font-family:var(--mono); font-size:10px; color:var(--faint); margin-right:6px}
+  nav.tabs button:hover{color:var(--ink); background:var(--bg2)}
+  nav.tabs button.active{color:var(--p1); background:var(--card); box-shadow:0 -2.5px 0 var(--p1) inset}
+  nav.tabs button.active .n{color:var(--p1)}
+
+  .filterbar{position:sticky; top:100px; z-index:35; background:var(--card); border:1px solid var(--line); border-radius:14px; margin:14px 22px 0; padding:10px 14px; display:flex; gap:11px; align-items:flex-end; flex-wrap:wrap; box-shadow:var(--sh-sm)}
+  .filterbar .f{display:flex; flex-direction:column; gap:3px}
+  .filterbar label{font-size:9.5px; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); font-weight:800}
+  .filterbar select{border:1px solid var(--line); border-radius:9px; padding:7px 9px; font:inherit; font-size:12.5px; background:#fff; color:var(--ink); min-width:118px}
+  .filterbar .reset{margin-left:auto; align-self:center; background:var(--p3s); color:#d8442f; border:none; border-radius:9px; padding:8px 13px; font-weight:700; cursor:pointer; font-size:12px}
+  .filterbar .scope{font-size:11px;color:var(--muted);align-self:center} .filterbar .scope b{color:var(--p1)}
+
+  main{padding:16px 22px 44px; max-width:1560px; margin:0 auto}
+  .page{display:none} .page.active{display:block; animation:fade .3s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+  .sectionhead{display:flex; align-items:center; gap:12px; margin:22px 0 13px}
+  .sectionhead h2{font-size:15px; margin:0; font-weight:800; letter-spacing:.01em}
+  .sectionhead .eyebrow{font-family:var(--mono); font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:#fff; background:var(--p1); padding:4px 9px; border-radius:7px; font-weight:700}
+  .sectionhead .rule{flex:1; height:1px; background:var(--line)}
+  .sectionhead.t2 .eyebrow{background:var(--p2)} .sectionhead.t3 .eyebrow{background:var(--p3)} .sectionhead.t4 .eyebrow{background:var(--p5)} .sectionhead.t5 .eyebrow{background:var(--p6)} .sectionhead.t6 .eyebrow{background:var(--p8)}
+
+  .kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(148px,1fr)); gap:12px}
+  .kpi{background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:13px 15px; box-shadow:var(--sh); position:relative; overflow:hidden}
+  .kpi .label{font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:800}
+  .kpi .val{font-size:24px; font-weight:800; margin-top:5px; font-variant-numeric:tabular-nums; letter-spacing:-.02em}
+  .kpi .sub{font-size:11px; color:var(--faint); margin-top:3px}
+  .kpi::after{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--p1)}
+  .kpi.c1::after{background:var(--p1)} .kpi.c2::after{background:var(--p2)} .kpi.c3::after{background:var(--p3)} .kpi.c4::after{background:var(--p4)} .kpi.c5::after{background:var(--p5)} .kpi.c6::after{background:var(--p6)} .kpi.c7::after{background:var(--p7)} .kpi.c8::after{background:var(--p8)}
+  .kpi.c1{background:linear-gradient(180deg,var(--p1s),#fff 70%)} .kpi.c2{background:linear-gradient(180deg,var(--p2s),#fff 70%)} .kpi.c3{background:linear-gradient(180deg,var(--p3s),#fff 70%)} .kpi.c4{background:linear-gradient(180deg,var(--p4s),#fff 70%)} .kpi.c5{background:linear-gradient(180deg,var(--p5s),#fff 70%)} .kpi.c6{background:linear-gradient(180deg,var(--p6s),#fff 70%)} .kpi.c7{background:linear-gradient(180deg,var(--p7s),#fff 70%)} .kpi.c8{background:linear-gradient(180deg,var(--p8s),#fff 70%)}
+  .up{color:var(--good); font-weight:800} .down{color:var(--bad); font-weight:800}
+
+  .grid{display:grid; gap:14px; margin-top:4px}
+  .g2{grid-template-columns:repeat(2,1fr)} .g3{grid-template-columns:repeat(3,1fr)} .g4{grid-template-columns:repeat(4,1fr)}
+  @media(max-width:1150px){.g3,.g4{grid-template-columns:repeat(2,1fr)}} @media(max-width:740px){.g2,.g3,.g4{grid-template-columns:1fr}}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:15px; box-shadow:var(--sh); display:flex; flex-direction:column; min-width:0}
+  .card h3{margin:0 0 11px; font-size:13px; font-weight:800; display:flex; align-items:center; gap:8px}
+  .card h3 .dot{width:9px;height:9px;border-radius:3px;background:var(--p1)}
+  .card .chartwrap{position:relative; flex:1; min-height:230px} .card.tall .chartwrap{min-height:300px}
+  .spanfull{grid-column:1/-1}
+  .podium{display:flex;gap:10px;flex-wrap:wrap}
+  .pod{flex:1;min-width:120px;border-radius:12px;padding:12px;border:1px solid var(--line)}
+  .pod.good{background:var(--p7s)} .pod.bad{background:var(--p3s)}
+  .pod .rank{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .pod .nm{font-size:14px;font-weight:800;margin:3px 0}
+  .pod .mt{font-size:11px;color:var(--ink-soft)}
+
+  table{width:100%; border-collapse:collapse; font-size:12.5px}
+  th,td{padding:7px 9px; text-align:right; border-bottom:1px solid var(--line2); font-variant-numeric:tabular-nums; white-space:nowrap}
+  th:first-child,td:first-child{text-align:left}
+  th{font-size:9.5px; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); font-weight:800; background:var(--card); position:sticky; top:0}
+  table.sortable th{cursor:pointer; user-select:none} table.sortable th:hover{color:var(--p1)}
+  table.sortable th::after{content:"\2195"; opacity:.25; margin-left:4px; font-size:10px}
+  table.sortable th.sortAsc::after{content:"\2191"; opacity:.9; color:var(--p1)} table.sortable th.sortDesc::after{content:"\2193"; opacity:.9; color:var(--p1)}
+  tbody tr:hover{background:var(--bg2)}
+  .scrolly{max-height:420px; overflow:auto; border:1px solid var(--line); border-radius:12px}
+  .scrollx{overflow-x:auto; border:1px solid var(--line); border-radius:12px}
+  .num{font-family:var(--mono); font-size:12px}
+  .pill{display:inline-block; padding:2px 9px; border-radius:999px; font-size:10.5px; font-weight:700}
+  .pill.r{background:var(--p2s); color:#0a8a7d} .pill.p{background:var(--p3s); color:#d8442f} .pill.t{background:var(--p5s); color:#7c43e0}
+  .delta-up{color:var(--good); font-weight:800} .delta-dn{color:var(--bad); font-weight:800}
+  .badge{padding:2px 8px;border-radius:7px;font-size:10px;font-weight:800}
+  .b-ap{background:var(--p7s);color:#15803d} .b-un{background:var(--p4s);color:#b45309}
+
+  .empty{text-align:center; padding:66px 20px; color:var(--muted)}
+  .empty .big{font-size:18px; font-weight:800; color:var(--ink); margin-bottom:8px}
+  .empty .hint{max-width:580px; margin:0 auto 16px; font-size:13px; line-height:1.6}
+  .empty code{background:var(--p1s); padding:2px 6px; border-radius:5px; font-family:var(--mono); font-size:12px; color:var(--p1)}
+  .drop{border:2px dashed var(--line); border-radius:var(--r); padding:36px; margin:16px auto 0; max-width:560px; background:var(--card)}
+  .drop.hot{border-color:var(--p1); background:var(--p1s)}
+  .footnote{font-size:11px; color:var(--faint); margin-top:8px} .miss{color:var(--bad)}
+  .toast{position:fixed; bottom:22px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff; padding:11px 18px; border-radius:11px; font-size:13px; z-index:99; box-shadow:0 10px 30px rgba(0,0,0,.2); display:none}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="brand"><b>XCLAIM</b><span>Claims Intelligence</span></div>
+  <div class="spacer"></div>
+  <div class="ctrl" id="fyCtrl" style="display:none"><div class="switch" id="fySwitch"><div class="track"></div><b>FY</b></div><select id="fySel" style="display:none"></select></div>
+  <div class="ctrl" id="monthCtrl" style="display:none"><label>Month</label><select id="monthSel"></select></div>
+  <div class="ctrl" id="dateCtrl" style="display:none"><label>As of</label><input type="date" id="asOf"></div>
+  <div class="ctrl" id="activeCtrl" style="display:none"><label>Active ≥</label><select id="activeN"></select></div>
+  <div class="ctrl"><input type="file" id="file" accept=".xlsx,.xlsm" style="display:none"><button class="upload-btn" id="uploadBtn">Upload Excel</button><span id="fileName"></span></div>
+</header>
+
+<nav class="tabs" id="tabs" style="display:none">
+  <button data-tab="intimation" class="active"><span class="n">01</span>Intimation</button>
+  <button data-tab="submission"><span class="n">02</span>Submission</button>
+  <button data-tab="outstanding"><span class="n">03</span>Outstanding</button>
+  <button data-tab="assessor"><span class="n">04</span>Assessor</button>
+  <button data-tab="cce"><span class="n">05</span>CCE</button>
+  <button data-tab="upload"><span class="n">06</span>Uploading</button>
+  <button data-tab="hub"><span class="n">07</span>Hub</button>
+  <button data-tab="ro"><span class="n">08</span>RO</button>
+</nav>
+
+<div class="filterbar" id="filterbar" style="display:none">
+  <div class="f"><label>Insurer</label><select id="flt_insurer"><option value="">All</option></select></div>
+  <div class="f"><label>Zone</label><select id="flt_zone"><option value="">All</option></select></div>
+  <div class="f"><label>Segment</label><select id="flt_segment"><option value="">All</option></select></div>
+  <div class="f"><label>Vehicle Type</label><select id="flt_vtype"><option value="">All</option></select></div>
+  <div class="scope" id="scopeNote"></div>
+  <button class="reset" id="fltReset">Reset</button>
+</div>
+
+<main>
+  <div id="landing" class="empty">
+    <div class="big">Drop in your monthly workbook</div>
+    <div class="hint">Reads <code>Base</code> (A:CS), <code>Hub</code> (A:L — target in K, Approved/Unapproved in L),
+      <code>Upl. Base</code>, <code>Assessor</code> &amp; <code>CCE</code> (Zone · TL · Name · TGT), and an optional <code>Targets</code> sheet.
+      Uses your derived columns (Insurer BX, Class BY, Segment BZ, Zone CA, Status CB) and recomputes every TAT, aging &amp; SLA itself.</div>
+    <div class="drop" id="drop"><button class="upload-btn" id="uploadBtn2">Choose .xlsx file</button>
+      <div class="footnote" style="margin-top:12px">Runs entirely in your browser — your data never leaves this page.</div></div>
+    <div id="loadMsg" class="footnote" style="margin-top:16px"></div>
+  </div>
+  <div id="page-intimation" class="page active"></div>
+  <div id="page-submission" class="page"></div>
+  <div id="page-outstanding" class="page"></div>
+  <div id="page-assessor" class="page"></div>
+  <div id="page-cce" class="page"></div>
+  <div id="page-upload" class="page"></div>
+  <div id="page-hub" class="page"></div>
+  <div id="page-ro" class="page"></div>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===== PART 1 — utilities ===== */
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const DOW=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const fmt=n=>(n==null||isNaN(n))?"–":Math.round(n).toLocaleString("en-IN");
+const fmt1=n=>(n==null||isNaN(n))?"–":(Math.round(n*10)/10).toLocaleString("en-IN");
+const pct=n=>(n==null||isNaN(n)||!isFinite(n))?"–":(Math.round(n*1000)/10)+"%";
+const money=n=>(n==null||isNaN(n))?"–":"₹"+Math.round(n).toLocaleString("en-IN");
+function toast(m){const t=$("#toast");t.textContent=m;t.style.display="block";clearTimeout(t._t);t._t=setTimeout(()=>t.style.display="none",3600);}
+function has(h,n){return h!=null&&String(h).toUpperCase().includes(n.toUpperCase());}
+const val=v=>v==null||v===""?"":String(v).trim();
+function parseDate(v){if(v==null||v==="")return null;
+  if(v instanceof Date&&!isNaN(v))return new Date(v.getFullYear(),v.getMonth(),v.getDate());
+  if(typeof v==="number"){const d=new Date(Math.round((v-25569)*86400*1000));return new Date(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate());}
+  let s=String(v).trim(); let m=s.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{4})/);
+  if(m){const mo=MONTHS.findIndex(x=>x.toLowerCase()===m[2].toLowerCase());if(mo>=0)return new Date(+m[3],mo,+m[1]);}
+  m=s.match(/^(\d{4})-(\d{2})-(\d{2})/); if(m)return new Date(+m[1],+m[2]-1,+m[3]);
+  m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if(m)return new Date(+m[3],+m[1]-1,+m[2]);
+  const d=new Date(s); return isNaN(d)?null:new Date(d.getFullYear(),d.getMonth(),d.getDate());}
+function parseDateTime(dv,tv){const d=parseDate(dv);if(!d)return null;let h=0,mi=0;
+  if(tv!=null&&tv!==""){if(typeof tv==="number"){const t=tv%1;h=Math.floor(t*24);mi=Math.round((t*24-h)*60);}
+    else{const m=String(tv).trim().match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);if(m){h=+m[1];mi=+m[2];const ap=(m[3]||"").toUpperCase();if(ap==="PM"&&h<12)h+=12;if(ap==="AM"&&h===12)h=0;}}}
+  return new Date(d.getFullYear(),d.getMonth(),d.getDate(),h,mi,0);}
+const dayKey=d=>d?`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`:null;
+const sameDay=(a,b)=>a&&b&&dayKey(a)===dayKey(b);
+function addMonths(d,n){return new Date(d.getFullYear(),d.getMonth()+n,d.getDate());}
+function addYears(d,n){return new Date(d.getFullYear()+n,d.getMonth(),d.getDate());}
+const mLabel=d=>MONTHS[d.getMonth()]+"'"+String(d.getFullYear()).slice(2);
+const monKey=d=>d.getFullYear()*12+d.getMonth();
+const inMonth=(d,m)=>d&&d.getFullYear()===m.getFullYear()&&d.getMonth()===m.getMonth();
+function workdays(d1,d2){if(!d1||!d2||d2<d1)return 0;let n=0,c=new Date(d1);while(c<=d2){if(c.getDay()!==0)n++;c=new Date(c.getFullYear(),c.getMonth(),c.getDate()+1);}return n;}
+const normCode=c=>String(c||"").trim().toUpperCase().replace(/^PB-/,"");
+const fyStartYear=d=>d.getMonth()>=3?d.getFullYear():d.getFullYear()-1;
+const fyLabel=y=>"FY"+y+"-"+String(y+1).slice(2);
+const W_OPEN=10,W_CLOSE=19,W_MIN=(W_CLOSE-W_OPEN)*60;
+function businessMinutes(start,end){if(!start||!end)return null;if(end<=start)return 0;
+  let s=new Date(start),e=new Date(end);const openOf=d=>new Date(d.getFullYear(),d.getMonth(),d.getDate(),W_OPEN,0,0);const closeOf=d=>new Date(d.getFullYear(),d.getMonth(),d.getDate(),W_CLOSE,0,0);
+  let sh=s.getHours()+s.getMinutes()/60; if(sh<W_OPEN)s=openOf(s);else if(sh>W_CLOSE)s=openOf(new Date(s.getFullYear(),s.getMonth(),s.getDate()+1));
+  let eh=e.getHours()+e.getMinutes()/60; if(eh<W_OPEN)e=openOf(e);else if(eh>W_CLOSE)e=closeOf(e);
+  if(e<=s)return 0; const isSun=d=>d.getDay()===0;
+  if(dayKey(s)===dayKey(e)){if(isSun(s))return 0;return Math.max(0,(Math.min(e,closeOf(s))-Math.max(s,openOf(s)))/60000);}
+  let total=0; if(!isSun(s))total+=Math.max(0,(closeOf(s)-s)/60000); if(!isSun(e))total+=Math.max(0,(e-openOf(e))/60000);
+  let cur=new Date(s.getFullYear(),s.getMonth(),s.getDate()+1); const last=new Date(e.getFullYear(),e.getMonth(),e.getDate()-1);
+  while(cur<=last){if(!isSun(cur))total+=W_MIN;cur=new Date(cur.getFullYear(),cur.getMonth(),cur.getDate()+1);} return total;}
+const minsToHrs=m=>m==null?"–":Math.floor(m/60)+"h "+Math.round(m%60)+"m";
+const minsToDays=m=>m==null?"–":fmt1(m/W_MIN);
+function avg(a){const v=a.filter(x=>x!=null&&!isNaN(x));return v.length?v.reduce((p,c)=>p+c,0)/v.length:null;}
+function tally(rows,fn){const m=new Map();for(const r of rows){const k=fn(r);if(k==null||k==="")continue;m.set(k,(m.get(k)||0)+1);}return m;}
+function groupBy(rows,fn){const m=new Map();for(const r of rows){const k=fn(r);if(k==null||k==="")continue;let a=m.get(k);if(!a){a=[];m.set(k,a);}a.push(r);}return m;}
+function topN(map,n){return [...map.entries()].sort((a,b)=>b[1]-a[1]).slice(0,n);}
+function mostCommon(arr){const m=new Map();arr.forEach(v=>{if(v)m.set(v,(m.get(v)||0)+1);});let b="",c=0;m.forEach((v,k)=>{if(v>c){c=v;b=k;}});return b;}
+</script>
+
+<script>
+/* ===== PART 2 — data engine ===== */
+let DB=null, charts={};
+const col=L=>{let n=0;for(const c of L)n=n*26+(c.charCodeAt(0)-64);return n-1;};
+const C={case:col("A"),status:col("B"),insurerRaw:col("E"),policy:col("H"),vtype:col("K"),make:col("N"),model:col("O"),
+  created:col("T"),createdTime:col("U"),settle:col("AE"),allocD:col("AF"),allocT:col("AG"),inspDepD:col("AH"),inspDepT:col("AI"),
+  inspCompD:col("AJ"),inspCompT:col("AK"),roD:col("AQ"),roT:col("AR"),invGenD:col("AS"),invAmt:col("AV"),finalD:col("AW"),
+  cce:col("BA"),assessor:col("BC"),officeCode:col("BF"),estimate:col("BH"),nextAction:col("BP"),remarkUpd:col("BQ"),
+  dInsurer:col("BX"),dProduct:col("BY"),dSeg:col("BZ"),dZone:col("CA"),dStatus:col("CB"),dIntCode:col("CS")};
+function classifyInsurer(e){if(has(e,"United"))return"United";if(has(e,"New India"))return"New India";if(has(e,"National"))return"National";if(has(e,"Oriental"))return"Oriental";return"";}
+function classifyProduct(e,h,n){h=h==null?"":String(h);n=n==null?"":String(n);const L6=h.slice(0,6),len=h.length;
+  if(has(e,"PB-Oriental"))return"PB-Oriental";if(has(e,"Oriental"))return"Retail-Oriental";if(has(e,"PB-United"))return"PB-United";if(has(e,"United"))return"Retail-United";if(has(e,"PB-New India"))return"PB-New India";
+  if(has(e,"New India")){if(L6==="980000"&&has(n,"MARUTI"))return"Maruti-New India";
+    if(L6==="800000"){if(has(n,"HYUNDAI"))return"Hyundai-New India";if(has(n,"TATA"))return"Tata-New India";if(has(n,"MORRIS"))return"Morris-New India";return"Retail-New India";}
+    if(L6==="770000"){if(has(n,"TOYOTA"))return"Toyota-New India";if(has(n,"RENAULT")||has(n,"NISSAN"))return"Renault/Nissan-New India";return"Retail-New India";}
+    if(L6==="712900"){if(has(n,"RENAULT")||has(n,"NISSAN"))return"Renault/Nissan-New India";return"Retail-New India";}return"Retail-New India";}
+  if(has(e,"PB-National"))return"PB-National";
+  if(has(e,"National")){if(len===18)return"Retail-National";if(len===20&&L6==="390102")return"Hero-National";if(len===20&&L6==="552700")return"TATA-National";if(len===20&&h.charAt(10)==="1")return"Maruti-National";if(len===20&&h.charAt(10)==="3")return"Honda-National";return"Retail-National";}return"";}
+const segOf=by=>has(by,"Retail")?"Retail":has(by,"PB")?"PB":(by?"Tie-up":"");
+function internalCode(ins,o){o=o==null?"":String(o);if(ins==="United")return"UIIC-"+o;if(ins==="National")return"NICL-"+o;if(ins==="New India")return"NIACL-"+o;if(ins==="Oriental")return"OICL-"+o;return"";}
+function statusOf(b){if(b==="Claim Approved"||b==="Claim Rejected"||b==="Assessment Rejected")return"Report Submitted";if(b==="Case Cancelled")return"Case Cancelled";return"Outstanding";}
+
+function readPeople(arr){ // Assessor/CCE sheet: find header row (A==Zone), map name->{zone,tl,target}
+  const out={}; if(!arr)return out; let hr=-1;
+  for(let i=0;i<Math.min(arr.length,8);i++){const row=(arr[i]||[]).map(x=>String(x||"").trim().toLowerCase());if(row.includes("zone")){hr=i;break;}}
+  if(hr<0)return out; const H=(arr[hr]||[]).map(x=>String(x||"").trim().toLowerCase());
+  const zi=H.indexOf("zone"), ti=H.findIndex(x=>x==="tl"||x==="tl name");
+  let ni=H.findIndex(x=>x==="assessor"||x==="cce name"||x==="cce"||x==="name"); if(ni<0)ni=2;
+  let gi=H.findIndex(x=>x==="tgt"||x==="target");
+  for(let i=hr+1;i<arr.length;i++){const r=arr[i];if(!r)continue;const nm=val(r[ni]);if(!nm||nm==="-")continue;
+    out[nm]={zone:val(r[zi]),tl:val(r[ti]),target:+String(r[gi]).replace(/[^0-9.\-]/g,"")||0};}
+  return out;}
+
+function buildModel(wb){
+  const get=n=>wb.Sheets[n]?XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:""}):null;
+  const baseA=get("Base"); if(!baseA||baseA.length<2)throw new Error("No 'Base' sheet found.");
+  // Hub A:L  (K target, L approved)
+  const hubA=get("Hub"); const hub={}; const hubRows=[];
+  if(hubA){let hr=0;for(let i=0;i<Math.min(hubA.length,12);i++){const row=(hubA[i]||[]).map(x=>String(x||"").trim().toLowerCase());if(row.includes("internal code")||row.includes("zone")){hr=i;break;}}
+    for(let i=hr+1;i<hubA.length;i++){const r=hubA[i];if(!r||r[0]===""||r[0]==null)continue;
+      const o={code:val(r[0]),zone:val(r[1]),classification:val(r[2]),insurer:val(r[3]),officeCode:val(r[4]),office:val(r[5]),roCode:val(r[6]),roName:val(r[7]),responsible:val(r[8]),state:val(r[9]),target:+String(r[10]).replace(/[^0-9.\-]/g,"")||0,approved:val(r[11])};
+      o.roKey=o.roName?o.roName+"|"+o.insurer:""; hub[o.code]=o;hubRows.push(o);}}
+  // people
+  const aMeta=readPeople(get("Assessor")), cMeta=readPeople(get("CCE"));
+  // Targets sheet (zone etc.)
+  const tgtA=get("Targets"); const targets={Assessor:{},CCE:{},Zone:{},Branch:{}};
+  if(tgtA)for(let i=1;i<tgtA.length;i++){const r=tgtA[i];if(!r||r[0]==="")continue;const cat=val(r[0]),nm=val(r[1]),t=+r[2]||0;if(targets[cat])targets[cat][nm]=t;}
+  // Upl. Base
+  const uplA=get("Upl. Base"); const upl=[];
+  if(uplA)for(let i=1;i<uplA.length;i++){const r=uplA[i];if(!r||r[0]==="")continue;const code=val(r[1]);upl.push({name:val(r[0]),code,date:parseDate(r[2]),insurer:has(code,"NIA")?"New India":"United"});}
+  // Base rows
+  const rows=[]; let maxD=null; const caseFinal={};
+  for(let i=1;i<baseA.length;i++){const r=baseA[i];if(!r||(r[C.case]===""&&r[C.insurerRaw]===""))continue;
+    const insurer=val(r[C.dInsurer])||classifyInsurer(r[C.insurerRaw]);
+    const product=val(r[C.dProduct])||classifyProduct(r[C.insurerRaw],r[C.policy],r[C.make]);
+    const segment=val(r[C.dSeg])||segOf(product);
+    const ic=val(r[C.dIntCode])||internalCode(insurer,r[C.officeCode]); const h=hub[ic]||{};
+    const zone=val(r[C.dZone])||h.zone||"";
+    const status=val(r[C.dStatus])||statusOf(r[C.status]);
+    const created=parseDate(r[C.created]), finalD=parseDate(r[C.finalD]);
+    const inspDepD=parseDate(r[C.inspDepD]), inspCompD=parseDate(r[C.inspCompD]);
+    if(created&&(!maxD||created>maxD))maxD=created; if(finalD&&(!maxD||finalD>maxD))maxD=finalD;
+    if(r[C.case]!==""&&finalD){const k=normCode(r[C.case]);if(!caseFinal[k])caseFinal[k]=finalD;}
+    const subTAT=(created&&finalD)?Math.round((finalD-created)/86400000):null;
+    const vro=businessMinutes(parseDateTime(r[C.allocD],r[C.allocT]),parseDateTime(r[C.roD],r[C.roT]));
+    const link=businessMinutes(parseDateTime(r[C.created],r[C.createdTime]),parseDateTime(r[C.inspDepD],r[C.inspDepT]));
+    const comp=businessMinutes(parseDateTime(r[C.inspDepD],r[C.inspDepT]),parseDateTime(r[C.inspCompD],r[C.inspCompT]));
+    const allocFSR=(parseDate(r[C.allocD])&&finalD)?Math.round((finalD-parseDate(r[C.allocD]))/86400000):null;
+    const invFSR=(parseDate(r[C.invGenD])&&finalD)?Math.round((finalD-parseDate(r[C.invGenD]))/86400000):null;
+    const settle=+r[C.settle]||0, estimate=+r[C.estimate]||0, setRatio=estimate>0?settle/estimate:null;
+    const cce=val(r[C.cce]), assessor=val(r[C.assessor]);
+    rows.push({caseCode:r[C.case],claimStatus:val(r[C.status]),status,insurer,product,segment,zone,
+      branch:h.office||"",roName:h.roName||"",roKey:h.roName?h.roName+"|"+insurer:"",state:h.state||"",responsible:h.responsible||"",classification:h.classification||product,
+      make:val(r[C.make])||"—",model:val(r[C.model])||"—",vtype:val(r[C.vtype])||"—",assessor,cce,
+      created,finalD,inspDepD,inspCompD,settle,estimate,setRatio,subTAT,vro,link,comp,allocFSR,invFSR,intCode:ic,
+      nextAction:parseDate(r[C.nextAction]),remarkUpd:parseDate(String(r[C.remarkUpd]||"").slice(0,11)),
+      aZone:(aMeta[assessor]&&aMeta[assessor].zone)||zone, aTL:(aMeta[assessor]&&aMeta[assessor].tl)||"",
+      cZone:(cMeta[cce]&&cMeta[cce].zone)||zone, cTL:(cMeta[cce]&&cMeta[cce].tl)||""});}
+  // upload TAT
+  for(const u of upl){const f=caseFinal[normCode(u.code)]||null;u.finalD=f;u.tatDays=(f&&u.date)?Math.round((u.date-f)/86400000):null;u.tatWork=(f&&u.date&&u.date>=f)?workdays(f,u.date)-1:(u.tatDays!=null?u.tatDays:null);u.matched=!!f;}
+  // activation month per RO (earliest intimation)
+  const roFirst={}; rows.forEach(r=>{if(r.roName&&r.created){if(!roFirst[r.roName]||r.created<roFirst[r.roName])roFirst[r.roName]=r.created;}});
+  // hub target rollups
+  const hbB={},hbZ={}; hubRows.forEach(o=>{if(!o.target)return;if(o.office)hbB[o.office]=(hbB[o.office]||0)+o.target;if(o.zone)hbZ[o.zone]=(hbZ[o.zone]||0)+o.target;});
+  for(const k in hbB)if(targets.Branch[k]==null)targets.Branch[k]=hbB[k];
+  for(const k in hbZ)if(targets.Zone[k]==null)targets.Zone[k]=hbZ[k];
+  const fys=new Set(); rows.forEach(r=>{if(r.created)fys.add(fyStartYear(r.created));});
+  const months=new Set(); rows.forEach(r=>{if(r.created)months.add(monKey(r.created));});
+  return {rows,hub,hubRows,upl,targets,aMeta,cMeta,roFirst,maxDate:maxD||new Date(),fys:[...fys].sort(),months:[...months].sort((a,b)=>a-b)};
+}
+
+/* ===== PART 3 — period engine ===== */
+function computePeriod(){const asOf=state.asOf;
+  if(state.fyMode){const y=state.fy,start=new Date(y,3,1),fyEnd=new Date(y+1,2,31);const end=(asOf>=start&&asOf<=fyEnd)?asOf:fyEnd;
+    const pStart=new Date(y-1,3,1),pEnd=addYears(end,-1);const trend=[];let c=new Date(start.getFullYear(),start.getMonth(),1);while(c<=end){trend.push(new Date(c));c=addMonths(c,1);}
+    return {curStart:start,curEnd:end,prevStart:pStart,prevEnd:pEnd,curLabel:"FYTD",prevLabel:"Last FYTD",trend,trendBy:"month",inCur:d=>d&&d>=start&&d<=end,inPrev:d=>d&&d>=pStart&&d<=pEnd,isFTD:d=>sameDay(d,asOf),scope:fyLabel(y)};}
+  const mStart=new Date(asOf.getFullYear(),asOf.getMonth(),1),lmStart=addMonths(mStart,-1);
+  const lastLm=new Date(lmStart.getFullYear(),lmStart.getMonth()+1,0).getDate();
+  const lmEnd=new Date(lmStart.getFullYear(),lmStart.getMonth(),Math.min(asOf.getDate(),lastLm));
+  const trend=[];for(let d=1;d<=asOf.getDate();d++)trend.push(d);
+  return {curStart:mStart,curEnd:asOf,prevStart:lmStart,prevEnd:lmEnd,curLabel:"MTD",prevLabel:"LMTD",trend,trendBy:"day",inCur:d=>d&&d>=mStart&&d<=asOf,inPrev:d=>d&&d>=lmStart&&d<=lmEnd,isFTD:d=>sameDay(d,asOf),scope:mLabel(asOf)};}
+/* previous 3 full months descending (May, Apr, Mar when current=Jun) */
+function prev3(){const a=state.asOf,m0=new Date(a.getFullYear(),a.getMonth(),1);return [addMonths(m0,-1),addMonths(m0,-2),addMonths(m0,-3)];}
+
+function univ(zoneField){const f=state.flt,zf=zoneField||"zone";
+  return DB.rows.filter(r=>{if(f.insurer&&r.insurer!==f.insurer)return false;if(f.segment&&r.segment!==f.segment)return false;if(f.vtype&&r.vtype!==f.vtype)return false;if(f.zone&&(r[zf]||r.zone)!==f.zone)return false;return true;});}
+
+/* sortable */
+document.addEventListener("click",e=>{const th=e.target.closest("table.sortable th");if(!th)return;
+  const table=th.closest("table"),idx=[...th.parentNode.children].indexOf(th),tb=table.tBodies[0];if(!tb)return;
+  const rows=[...tb.rows].filter(r=>!r.dataset.nosort);const prev=table.dataset.sortcol,dir=(prev==String(idx)&&table.dataset.sortdir==="asc")?"desc":"asc";
+  const num=v=>{const m=String(v).replace(/,/g,"").match(/-?\d+\.?\d*/);return m?parseFloat(m[0]):null;};
+  rows.sort((a,b)=>{const x=a.cells[idx]?.innerText||"",y=b.cells[idx]?.innerText||"";const nx=num(x),ny=num(y);let c=(nx!=null&&ny!=null)?nx-ny:x.localeCompare(y);return dir==="asc"?c:-c;});
+  rows.forEach(r=>tb.appendChild(r));table.dataset.sortcol=idx;table.dataset.sortdir=dir;[...th.parentNode.children].forEach(h=>h.classList.remove("sortAsc","sortDesc"));th.classList.add(dir==="asc"?"sortAsc":"sortDesc");});
+
+/* charts */
+Chart.defaults.font.family="Inter,system-ui,sans-serif";Chart.defaults.font.size=11;Chart.defaults.color="#737c9e";
+const PAL=["#5b5bd6","#0bb8a6","#ff6b5e","#ffb020","#8b5cf6","#3b82f6","#22c55e","#ec4899","#7a7aee","#34d0bf","#ff8c82","#a78bfa"];
+const SEGC=["#0bb8a6","#ff6b5e","#8b5cf6"];
+const DL={id:"dl",afterDatasetsDraw(chart,a,opts){if(!opts||!opts.on)return;const {ctx}=chart;ctx.save();ctx.font="700 10px Inter";ctx.fillStyle="#1f2540";
+  chart.data.datasets.forEach((ds,di)=>{const meta=chart.getDatasetMeta(di);if(meta.hidden)return;meta.data.forEach((el,i)=>{const v=ds.data[i];if(v==null||v===0)return;
+    const horiz=chart.options.indexAxis==="y";ctx.textAlign=horiz?"left":"center";ctx.textBaseline=horiz?"middle":"bottom";
+    const x=horiz?el.x+4:el.x;const y=horiz?el.y:el.y-3;ctx.fillText(fmt(v),x,y);});});ctx.restore();}};
+Chart.register(DL);
+function mkChart(id,cfg){const el=document.getElementById(id);if(!el)return;if(charts[id])charts[id].destroy();charts[id]=new Chart(el,cfg);}
+function clearCharts(){Object.values(charts).forEach(c=>{try{c.destroy()}catch(e){}});charts={};}
+function barCfg(labels,data,horizontal,colors,dl){return {type:"bar",data:{labels,datasets:[{data,backgroundColor:colors||PAL[0],borderRadius:6,maxBarThickness:32}]},
+  options:{indexAxis:horizontal?"y":"x",responsive:true,maintainAspectRatio:false,layout:{padding:dl?(horizontal?{right:28}:{top:16}):0},plugins:{legend:{display:false},dl:{on:!!dl}},
+    scales:{x:{grid:{display:!horizontal,color:"#eef1fa"},ticks:{autoSkip:false,maxRotation:60,minRotation:0}},y:{grid:{display:horizontal,color:"#eef1fa"},beginAtZero:true,ticks:{precision:0}}}}};}
+function groupedCfg(labels,sets,horiz){return {type:"bar",data:{labels,datasets:sets.map((s,i)=>({label:s.label,data:s.data,backgroundColor:s.color||PAL[i],borderRadius:5,maxBarThickness:26}))},
+  options:{indexAxis:horiz?"y":"x",responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"top",labels:{boxWidth:11,usePointStyle:true,pointStyle:"rectRounded"}},dl:{on:false}},scales:{x:{grid:{color:"#eef1fa"},beginAtZero:true},y:{grid:{color:"#eef1fa"},beginAtZero:true}}}};}
+function doughnutCfg(labels,data,colors){return {type:"doughnut",data:{labels,datasets:[{data,backgroundColor:colors,borderWidth:2,borderColor:"#fff"}]},options:{responsive:true,maintainAspectRatio:false,cutout:"60%",plugins:{legend:{position:"right",labels:{boxWidth:11,boxHeight:11,usePointStyle:true,pointStyle:"rectRounded"}},dl:{on:false}}}};}
+function lineCfg(labels,sets){return {type:"line",data:{labels,datasets:sets.map((d,i)=>({label:d.label,data:d.data,borderColor:d.color||PAL[i],backgroundColor:(d.color||PAL[i])+"22",fill:d.fill!==false,tension:.35,pointRadius:2,borderWidth:2}))},
+  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:sets.length>1,position:"top",labels:{boxWidth:11,usePointStyle:true,pointStyle:"line"}},dl:{on:false}},scales:{x:{grid:{display:false},ticks:{maxRotation:60,autoSkip:true,maxTicksLimit:16}},y:{beginAtZero:true,grid:{color:"#eef1fa"},ticks:{precision:0}}}}};}
+const card=(t,b,cls,extra)=>`<div class="card ${cls||""}"><h3><span class="dot"></span>${t}${extra||""}</h3>${b}</div>`;
+const cv=id=>`<div class="chartwrap"><canvas id="${id}"></canvas></div>`;
+function table(headers,rowsHTML,opt={}){const cls=opt.x?"scrollx":"scrolly";return `<div class="${cls}"><table class="${opt.sortable===false?'':'sortable'}"><thead><tr>${headers.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rowsHTML}</tbody></table></div>`;}
+const emptyRow=n=>`<tr data-nosort="1"><td colspan="${n}" style="text-align:center;color:var(--faint);padding:18px">Nothing in this view</td></tr>`;
+const segPill=s=>s==="Retail"?'<span class="pill r">Retail</span>':s==="PB"?'<span class="pill p">PB</span>':s==="Tie-up"?'<span class="pill t">Tie-up</span>':"–";
+function kpi(label,v,sub,cls){return `<div class="kpi ${cls||""}"><div class="label">${label}</div><div class="val">${v}</div>${sub?`<div class="sub">${sub}</div>`:""}</div>`;}
+function deltaSub(cur,prev,lbl){const d=cur-prev,a=d>=0?"up":"down",s=d>=0?"▲":"▼";return `vs ${lbl} <b class="${a}">${s} ${fmt(Math.abs(d))}</b> · ${prev?pct(d/prev):"–"}`;}
+let topNPref=10;
+function topNctl(){return `<select id="topNsel" style="margin-left:auto;border:1px solid var(--line);border-radius:8px;padding:3px 7px;font:inherit;font-size:11px"><option value="10" ${topNPref===10?"selected":""}>Top 10</option><option value="20" ${topNPref===20?"selected":""}>Top 20</option></select>`;}
+function wireTopN(re){const el=$("#topNsel");if(el)el.onchange=()=>{topNPref=+el.value;re();};}
+function podium(arr,cls,fmtFn){return `<div class="podium">${arr.map((x,i)=>`<div class="pod ${cls}"><div class="rank">#${i+1}</div><div class="nm">${x.name}</div><div class="mt">${fmtFn(x)}</div></div>`).join("")||'<div class="mt" style="color:var(--faint)">Not enough data</div>'}</div>`;}
+</script>
+
+<script>
+/* ===== TAB 1 — INTIMATION ===== */
+function renderIntimation(){
+  const P=computePeriod(), all=univ("zone"), aN=state.activeN, P3=prev3(), p3h=P3.map(mLabel);
+  const f=state.flt;
+  // single pass: per-branch, per-roKey, per-classification, plus mix tallies
+  const EA=()=>({ftd:0,cur:0,prev:0,m0:0,m1:0,m2:0});
+  const hubAgg=new Map(),roAgg=new Map(),clsAgg=new Map();
+  const insMix=new Map(),segMix=new Map(),vMix=new Map(),makeMix=new Map(),modelMix=new Map();
+  const dayMix=new Map(),monMix=new Map();
+  let curTot=0,prevTot=0,ftdTot=0,cancel=0;
+  const bump=(map,k,fld)=>{if(!k)return;let a=map.get(k);if(!a){a=EA();map.set(k,a);}a[fld]++;};
+  for(const r of all){const c=r.created;if(!c)continue;
+    const isC=P.inCur(c),isP=P.inPrev(c),isF=P.isFTD(c);
+    if(isC){curTot++; insMix.set(r.insurer,(insMix.get(r.insurer)||0)+1); segMix.set(r.segment,(segMix.get(r.segment)||0)+1); vMix.set(r.vtype,(vMix.get(r.vtype)||0)+1); makeMix.set(r.make,(makeMix.get(r.make)||0)+1); modelMix.set(r.model,(modelMix.get(r.model)||0)+1);
+      if(P.trendBy==="day")dayMix.set(c.getDate(),(dayMix.get(c.getDate())||0)+1); else monMix.set(monKey(c),(monMix.get(monKey(c))||0)+1);
+      if(r.status==="Case Cancelled")cancel++;}
+    if(isP)prevTot++; if(isF)ftdTot++;
+    const upd=(map,k)=>{if(!k)return;let a=map.get(k);if(!a){a=EA();map.set(k,a);}if(isF)a.ftd++;if(isC)a.cur++;if(isP)a.prev++;if(inMonth(c,P3[0]))a.m0++;if(inMonth(c,P3[1]))a.m1++;if(inMonth(c,P3[2]))a.m2++;};
+    upd(hubAgg,r.branch);upd(roAgg,r.roKey);upd(clsAgg,r.classification);}
+  // hub target (sum of Hub col K) honoring insurer/zone filters
+  let intimTgt=0; for(const o of DB.hubRows){if(f.insurer&&o.insurer!==f.insurer)continue;if(f.zone&&o.zone!==f.zone)continue;intimTgt+=o.target||0;}
+  const overallHub=new Set(DB.hubRows.map(o=>o.office).filter(Boolean)).size||hubAgg.size;
+  const overallRO=new Set(DB.hubRows.map(o=>o.roKey).filter(Boolean)).size||roAgg.size;
+  const activeHub=[...hubAgg.values()].filter(a=>a.cur>=aN).length, activeRO=[...roAgg.values()].filter(a=>a.cur>=aN).length;
+  const moveArr=m=>[...m.entries()].map(([k,a])=>({k,...a,d:a.cur-a.prev}));
+  const hubMove=moveArr(hubAgg),roMove=moveArr(roAgg);
+  const gHub=hubMove.filter(x=>x.d>0).length,dHub=hubMove.filter(x=>x.d<0).length,gRO=roMove.filter(x=>x.d>0).length,dRO=roMove.filter(x=>x.d<0).length;
+  const roParts=k=>{const i=k.lastIndexOf("|");return i<0?[k,""]:[k.slice(0,i),k.slice(i+1)];};
+  const hubInsurer=k=>{const o=DB.hubRows.find(o=>o.office===k);return o?o.insurer:"";};
+  const moveTableHub=arr=>table(["Hub","Insurer","FTD",P.curLabel,P.prevLabel,"Δ",...p3h],arr.map(x=>{const cls=x.d>=0?"delta-up":"delta-dn",s=x.d>=0?"▲":"▼";
+    return `<tr><td>${x.k}</td><td>${hubInsurer(x.k)}</td><td class="num">${x.ftd}</td><td class="num">${x.cur}</td><td class="num">${x.prev}</td><td class="${cls}">${s} ${Math.abs(x.d)}</td><td class="num">${x.m0}</td><td class="num">${x.m1}</td><td class="num">${x.m2}</td></tr>`;}).join("")||emptyRow(9),{x:true});
+  const moveTableRO=arr=>table(["RO","Insurer","FTD",P.curLabel,P.prevLabel,"Δ",...p3h],arr.map(x=>{const [ro,ins]=roParts(x.k);const cls=x.d>=0?"delta-up":"delta-dn",s=x.d>=0?"▲":"▼";
+    return `<tr><td>${ro}</td><td>${ins}</td><td class="num">${x.ftd}</td><td class="num">${x.cur}</td><td class="num">${x.prev}</td><td class="${cls}">${s} ${Math.abs(x.d)}</td><td class="num">${x.m0}</td><td class="num">${x.m1}</td><td class="num">${x.m2}</td></tr>`;}).join("")||emptyRow(9),{x:true});
+  const byInsurer=topN(insMix,12),byMake=topN(makeMix,topNPref),byModel=topN(modelMix,topNPref);
+  const clsRows=[...clsAgg.entries()].map(([cl,a])=>({cl,...a})).sort((a,b)=>b.cur-a.cur);
+  let trL,trD; if(P.trendBy==="day"){trL=P.trend.map(d=>{const dt=new Date(state.asOf.getFullYear(),state.asOf.getMonth(),d);return d+" "+DOW[dt.getDay()];});trD=P.trend.map(d=>dayMix.get(d)||0);}
+  else{trL=P.trend.map(mLabel);trD=P.trend.map(m=>monMix.get(monKey(m))||0);}
+
+  $("#page-intimation").innerHTML=`
+  <div class="kpis">
+    ${kpi("FTD Intimation",fmt(ftdTot),`as of ${dayKey(state.asOf)}`,"c1")}
+    ${kpi(P.curLabel+" Intimation",fmt(curTot),deltaSub(curTot,prevTot,P.prevLabel),"c2")}
+    ${kpi(P.prevLabel,fmt(prevTot),P.scope,"c6")}
+    ${kpi("Intimation Target",fmt(intimTgt),intimTgt?pct(curTot/intimTgt)+" achieved (Hub Σ)":"Hub col K","c7")}
+    ${kpi("Cancelled / Rate",`${fmt(cancel)} · ${pct(cancel/(curTot||1))}`,"of "+P.curLabel,"c3")}
+  </div>
+  <div class="kpis" style="margin-top:12px">
+    ${kpi("Active / Overall Hub",`${activeHub} / ${overallHub}`,`hubs ≥ ${aN} intim`,"c4")}
+    ${kpi("Active / Overall RO",`${activeRO} / ${overallRO}`,`ROs ≥ ${aN} intim`,"c5")}
+    ${kpi("Grown / Degrown Hub",`${gHub} / ${dHub}`,"vs "+P.prevLabel,"c8")}
+    ${kpi("Grown / Degrown RO",`${gRO} / ${dRO}`,"vs "+P.prevLabel,"c2")}
+  </div>
+
+  <div class="sectionhead t2"><span class="eyebrow">Hub movement</span><h2>Top 10 grown & degrown hubs</h2><div class="rule"></div></div>
+  <div class="grid g2">${card("Top 10 grown hubs",moveTableHub([...hubMove].sort((a,b)=>b.d-a.d).slice(0,10)))}${card("Top 10 degrown hubs",moveTableHub([...hubMove].sort((a,b)=>a.d-b.d).slice(0,10)))}</div>
+  <div class="sectionhead t3"><span class="eyebrow">RO movement</span><h2>Top 10 grown & degrown ROs (insurer-wise)</h2><div class="rule"></div></div>
+  <div class="grid g2">${card("Top 10 grown ROs",moveTableRO([...roMove].sort((a,b)=>b.d-a.d).slice(0,10)))}${card("Top 10 degrown ROs",moveTableRO([...roMove].sort((a,b)=>a.d-b.d).slice(0,10)))}</div>
+
+  <div class="sectionhead"><span class="eyebrow">Mix</span><h2>Insurer · segment · vehicle type · trend</h2><div class="rule"></div></div>
+  <div class="grid g4">${card("Insurer-wise",cv("i_insurer"))}${card("Segment-wise",cv("i_segment"))}${card("Vehicle-type-wise",cv("i_vtype"))}<div class="card"><h3><span class="dot"></span>Daily trend</h3>${cv("i_trend")}</div></div>
+  <div class="grid" style="margin-top:14px">${card("Classification-wise — FTD / "+P.curLabel+" / "+P.prevLabel+" / "+p3h.join(" / "),
+    table(["Classification","FTD",P.curLabel,P.prevLabel,...p3h],clsRows.map(x=>`<tr><td>${x.cl}</td><td class="num">${x.ftd}</td><td class="num">${x.cur}</td><td class="num">${x.prev}</td><td class="num">${x.m0}</td><td class="num">${x.m1}</td><td class="num">${x.m2}</td></tr>`).join("")||emptyRow(4+p3h.length)),"spanfull")}</div>
+
+  <div class="sectionhead t4"><span class="eyebrow">Vehicles</span><h2>Top makes & models</h2><div class="rule"></div></div>
+  <div class="grid g2"><div class="card tall"><h3><span class="dot"></span>Top makes ${topNctl()}</h3>${cv("i_make")}</div><div class="card tall"><h3><span class="dot"></span>Top models</h3>${cv("i_model")}</div></div>`;
+
+  mkChart("i_insurer",barCfg(byInsurer.map(x=>x[0]),byInsurer.map(x=>x[1]),true,PAL,true));
+  mkChart("i_segment",doughnutCfg(["Retail","PB","Tie-up"],["Retail","PB","Tie-up"].map(s=>segMix.get(s)||0),SEGC));
+  mkChart("i_vtype",doughnutCfg([...vMix.keys()],[...vMix.values()],PAL));
+  mkChart("i_trend",lineCfg(trL,[{label:"Intimation",data:trD,color:PAL[0]}]));
+  mkChart("i_make",barCfg(byMake.map(x=>x[0]),byMake.map(x=>x[1]),true,PAL,true));
+  mkChart("i_model",barCfg(byModel.map(x=>x[0]),byModel.map(x=>x[1]),true,PAL,true));
+  wireTopN(renderIntimation);
+}
+
+/* ===== TAB 2 — SUBMISSION ===== */
+function mmStats(rows,key,n){const g=groupBy(rows,r=>r[key]);
+  return [...g.entries()].map(([k,arr])=>({k,n:arr.length,sub:avg(arr.map(r=>r.subTAT)),vro:avg(arr.map(r=>r.vro)),setl:avg(arr.map(r=>r.settle)),ratio:avg(arr.map(r=>r.setRatio))})).sort((a,b)=>b.n-a.n).slice(0,n);}
+function renderSubmission(){
+  const P=computePeriod(), all=univ("aZone");
+  const sub=all.filter(r=>r.finalD), cur=sub.filter(r=>P.inCur(r.finalD)), prev=sub.filter(r=>P.inPrev(r.finalD)), ftd=sub.filter(r=>P.isFTD(r.finalD));
+  const intimCur=all.filter(r=>P.inCur(r.created)).length;
+  const T={sub:avg(cur.map(r=>r.subTAT)),vro:avg(cur.map(r=>r.vro)),comp:avg(cur.map(r=>r.comp)),link:avg(cur.map(r=>r.link)),afsr:avg(cur.map(r=>r.allocFSR)),ifsr:avg(cur.map(r=>r.invFSR))};
+  const avgSetl=cur.length?cur.reduce((s,r)=>s+r.settle,0)/cur.length:null, setRatio=avg(cur.map(r=>r.setRatio));
+  const subRatio=intimCur?cur.length/intimCur:null;
+  // filters TL + zone for assessor grouping
+  const tlOpts=[...new Set(all.map(r=>r.aTL).filter(Boolean))].sort();
+  const zOpts=[...new Set(all.map(r=>r.aZone).filter(Boolean))].sort();
+  const af=state.subAFilter;
+  const aRows=cur.filter(r=>(!af.tl||r.aTL===af.tl)&&(!af.zone||r.aZone===af.zone));
+  const assessors=[...new Set(aRows.map(r=>r.assessor).filter(Boolean))];
+  const aDetail=assessors.map(a=>{const g=aRows.filter(r=>r.assessor===a);const ga=all.filter(r=>r.assessor===a);
+    return {a,tl:g[0].aTL,zone:g[0].aZone,ftd:ga.filter(r=>P.isFTD(r.finalD)).length,mtd:g.length,lmtd:ga.filter(r=>r.finalD&&P.inPrev(r.finalD)).length,
+      sub:avg(g.map(r=>r.subTAT)),setl:avg(g.map(r=>r.settle)),vro:avg(g.map(r=>r.vro)),afsr:avg(g.map(r=>r.allocFSR)),ifsr:avg(g.map(r=>r.invFSR))};}).sort((a,b)=>b.mtd-a.mtd);
+  const byInsurer=topN(tally(cur,r=>r.insurer),12),bySeg=tally(cur,r=>r.segment);
+  const wise=(fn,label)=>{const g=groupBy(cur,fn);const rs=[...g.entries()].map(([k,arr])=>({k,n:arr.length,sub:avg(arr.map(r=>r.subTAT)),vro:avg(arr.map(r=>r.vro)),comp:avg(arr.map(r=>r.comp)),setl:avg(arr.map(r=>r.settle))})).sort((a,b)=>b.n-a.n);
+    return table([label,"Subs","Sub TAT(d)","VRO TAT","Comp TAT","Avg Settle"],rs.map(x=>`<tr><td>${x.k}</td><td class="num">${x.n}</td><td class="num">${fmt1(x.sub)}</td><td class="num">${minsToHrs(x.vro)}</td><td class="num">${minsToHrs(x.comp)}</td><td class="num">${money(x.setl)}</td></tr>`).join("")||emptyRow(6));};
+  const byMakeArr=mmStats(cur,"make",topNPref);
+  let trL,trD; if(P.trendBy==="day"){trL=P.trend.map(d=>{const dt=new Date(state.asOf.getFullYear(),state.asOf.getMonth(),d);return d+" "+DOW[dt.getDay()];});const dm=new Map();cur.forEach(r=>dm.set(r.finalD.getDate(),(dm.get(r.finalD.getDate())||0)+1));trD=P.trend.map(d=>dm.get(d)||0);}
+  else{trL=P.trend.map(mLabel);trD=P.trend.map(m=>sub.filter(r=>inMonth(r.finalD,m)).length);}
+
+  $("#page-submission").innerHTML=`
+  <div class="kpis">
+    ${kpi("FTD Submission",fmt(ftd.length),`as of ${dayKey(state.asOf)}`,"c1")}
+    ${kpi(P.curLabel+" Submission",fmt(cur.length),deltaSub(cur.length,prev.length,P.prevLabel),"c2")}
+    ${kpi("Submission Ratio",pct(subRatio),`${fmt(cur.length)} / ${fmt(intimCur)} intim`,"c6")}
+    ${kpi("Avg Sub TAT",fmt1(T.sub)+" d","created → final report","c4")}
+    ${kpi("Avg Claim Settlement",money(avgSetl),`ratio ${pct(setRatio)}`,"c5")}
+    ${kpi("Link TAT",minsToHrs(T.link),"created → inspection","c3")}
+  </div>
+  <div class="kpis" style="margin-top:12px">
+    ${kpi("Avg Survey Completion TAT",minsToHrs(T.comp),minsToDays(T.comp)+" wd","c2")}
+    ${kpi("Avg VRO TAT",minsToHrs(T.vro),minsToDays(T.vro)+" wd","c1")}
+    ${kpi("Allocation → FSR TAT",fmt1(T.afsr)+" d","surveyor alloc → FSR","c4")}
+    ${kpi("Invoice → FSR TAT",fmt1(T.ifsr)+" d","invoice → FSR","c3")}
+  </div>
+
+  <div class="sectionhead t2"><span class="eyebrow">Assessor</span><h2>Assessor-wise submission & TAT</h2><div class="rule"></div></div>
+  <div class="filterbar" style="position:static;margin:0 0 12px;top:auto">
+    <div class="f"><label>TL</label><select id="sa_tl"><option value="">All</option>${tlOpts.map(o=>`<option ${o===af.tl?"selected":""}>${o}</option>`).join("")}</select></div>
+    <div class="f"><label>Zone</label><select id="sa_zone"><option value="">All</option>${zOpts.map(o=>`<option ${o===af.zone?"selected":""}>${o}</option>`).join("")}</select></div>
+    <div class="scope">${fmt(aRows.length)} submissions in view</div>
+  </div>
+  <div class="card">${table(["Assessor","TL","Zone","FTD",P.curLabel,P.prevLabel,"Sub TAT(d)","Avg Settle","VRO TAT","Alloc→FSR","Inv→FSR"],
+    aDetail.map(x=>`<tr><td>${x.a}</td><td>${x.tl}</td><td>${x.zone}</td><td class="num">${x.ftd}</td><td class="num">${x.mtd}</td><td class="num">${x.lmtd}</td><td class="num">${fmt1(x.sub)}</td><td class="num">${money(x.setl)}</td><td class="num">${minsToHrs(x.vro)}</td><td class="num">${fmt1(x.afsr)}d</td><td class="num">${fmt1(x.ifsr)}d</td></tr>`).join("")||emptyRow(11),{x:true})}</div>
+
+  <div class="sectionhead t3"><span class="eyebrow">Portfolio</span><h2>Insurer · segment · product · trend</h2><div class="rule"></div></div>
+  <div class="grid g3">${card("Insurer-wise submission",cv("s_insurer"))}${card("Segment-wise submission",cv("s_segment"))}<div class="card"><h3><span class="dot"></span>Daily submission trend</h3>${cv("s_trend")}</div></div>
+  <div class="grid" style="margin-top:14px">${card("Product-wise detail",wise(r=>r.product,"Product"),"spanfull")}</div>
+
+  <div class="sectionhead t4"><span class="eyebrow">Vehicles</span><h2>Make & model — TAT, settlement, ratio</h2><div class="rule"></div></div>
+  <div class="grid g2">
+    <div class="card"><h3><span class="dot"></span>Make-wise ${topNctl()}</h3>${table(["Make","Subs","Avg TAT(d)","VRO TAT","Avg Settle","Settle Ratio"],byMakeArr.map(x=>`<tr><td>${x.k}</td><td class="num">${x.n}</td><td class="num">${fmt1(x.sub)}</td><td class="num">${minsToHrs(x.vro)}</td><td class="num">${money(x.setl)}</td><td class="num">${pct(x.ratio)}</td></tr>`).join("")||emptyRow(6))}</div>
+    ${card("Model-wise detail",(()=>{const a=mmStats(cur,"model",topNPref);return table(["Model","Subs","Avg TAT(d)","Avg Settle","Settle Ratio"],a.map(x=>`<tr><td>${x.k}</td><td class="num">${x.n}</td><td class="num">${fmt1(x.sub)}</td><td class="num">${money(x.setl)}</td><td class="num">${pct(x.ratio)}</td></tr>`).join("")||emptyRow(5));})())}
+  </div>`;
+
+  mkChart("s_insurer",barCfg(byInsurer.map(x=>x[0]),byInsurer.map(x=>x[1]),true,PAL,true));
+  mkChart("s_segment",doughnutCfg(["Retail","PB","Tie-up"],["Retail","PB","Tie-up"].map(s=>bySeg.get(s)||0),SEGC));
+  mkChart("s_trend",lineCfg(trL,[{label:"Submissions",data:trD,color:PAL[1]}]));
+  $("#sa_tl").onchange=e=>{state.subAFilter.tl=e.target.value;renderSubmission();};
+  $("#sa_zone").onchange=e=>{state.subAFilter.zone=e.target.value;renderSubmission();};
+  wireTopN(renderSubmission);
+}
+
+/* ===== TAB 3 — OUTSTANDING ===== */
+function osBuild(){const P=computePeriod();return univ("zone").filter(r=>r.status==="Outstanding").map(r=>{
+  const aging=r.created?Math.round((state.asOf-r.created)/86400000):null;
+  const elapsed=r.remarkUpd?Math.round((state.asOf-r.remarkUpd)/86400000):null;
+  const bucket=aging==null?"—":aging<=5?"0-5 Days":aging<=15?"6-15 Days":"Above 15 Days";
+  const thr=r.segment==="Tie-up"?15:20; const sla=(aging!=null&&aging>thr)?"Above SLA":"Below SLA";
+  return {...r,aging,elapsed,bucket,sla};});}
+function renderOutstanding(){
+  const os=osBuild();
+  const buckets=["0-5 Days","6-15 Days","Above 15 Days"], byBucket=buckets.map(b=>os.filter(r=>r.bucket===b).length);
+  const aboveSLA=os.filter(r=>r.sla==="Above SLA").length, avgAge=avg(os.map(r=>r.aging)), avgTat=avg(os.map(r=>r.subTAT));
+  const nextActFilled=os.filter(r=>r.nextAction&&r.nextAction>=state.asOf).length;
+  const byInsurer=topN(tally(os,r=>r.insurer),12),bySeg=tally(os,r=>r.segment),byV=tally(os,r=>r.vtype);
+  const elN=state.osElapsed;             // 1..7 ; show cases elapsed > elN
+  const idle=os.filter(r=>r.elapsed!=null&&r.elapsed>elN);
+  const slaScope=idle;
+  const slaTable=(fn,label)=>{const g=groupBy(slaScope,fn);const rs=[...g.entries()].map(([k,arr])=>{const a=arr.filter(r=>r.sla==="Above SLA").length;return{k,n:arr.length,a,age:avg(arr.map(r=>r.aging))};}).sort((a,b)=>b.n-a.n);
+    return table([label,"OS","Above SLA","% > SLA","Avg Aging"],rs.map(x=>`<tr><td>${x.k}</td><td class="num">${x.n}</td><td class="num">${x.a}</td><td class="num">${pct(x.a/x.n)}</td><td class="num">${fmt1(x.age)} d</td></tr>`).join("")||emptyRow(5));};
+
+  $("#page-outstanding").innerHTML=`
+  <div class="kpis">
+    ${kpi("Total Outstanding",fmt(os.length),`open as of ${dayKey(state.asOf)}`,"c1")}
+    ${kpi("0–5 Days",fmt(byBucket[0]),pct(byBucket[0]/os.length),"c2")}
+    ${kpi("6–15 Days",fmt(byBucket[1]),pct(byBucket[1]/os.length),"c4")}
+    ${kpi("Above 15 Days",fmt(byBucket[2]),pct(byBucket[2]/os.length),"c3")}
+    ${kpi("Above SLA",fmt(aboveSLA),pct(aboveSLA/os.length)+" of OS","c3")}
+    ${kpi("Avg Aging / OS TAT",`${fmt1(avgAge)} / ${fmt1(avgTat)} d`,"open cases","c5")}
+  </div>
+
+  <div class="sectionhead t2"><span class="eyebrow">Grouping</span><h2>Aging · segment · vehicle · insurer</h2><div class="rule"></div></div>
+  <div class="grid g4">${card("Aging buckets",cv("o_bucket"))}${card("Segment-wise OS",cv("o_segment"))}${card("Vehicle-type OS",cv("o_vtype"))}${card("Insurer-wise OS",cv("o_insurer"))}</div>
+
+  <div class="sectionhead t3"><span class="eyebrow">Vehicles</span><h2>Make & model wise</h2><div class="rule"></div></div>
+  <div class="grid g2">
+    <div class="card"><h3><span class="dot"></span>Make-wise OS ${topNctl()}</h3>${table(["Make","OS","Avg Aging"],osMakeAge(os,"make",topNPref).map(x=>`<tr><td>${x.k}</td><td class="num">${x.n}</td><td class="num">${fmt1(x.age)} d</td></tr>`).join("")||emptyRow(3))}</div>
+    <div class="card"><h3><span class="dot"></span>Model-wise OS</h3>${table(["Model","OS","Avg Aging"],osMakeAge(os,"model",topNPref).map(x=>`<tr><td>${x.k}</td><td class="num">${x.n}</td><td class="num">${fmt1(x.age)} d</td></tr>`).join("")||emptyRow(3))}</div>
+  </div>
+
+  <div class="sectionhead t4"><span class="eyebrow">SLA pressure</span><h2>Elapsed-since-update filter · next-action coverage</h2><div class="rule"></div></div>
+  <div class="filterbar" style="position:static;margin:0 0 12px;top:auto">
+    <div class="f"><label>Elapsed ></label><select id="o_elapsed">${[1,2,3,4,5,6,7].map(n=>`<option value="${n}" ${n===elN?"selected":""}>${n} day${n>1?"s":""}</option>`).join("")}</select></div>
+    <div class="scope">Idle &gt; ${elN}d: <b>${fmt(idle.length)}</b> cases · Next-action date filled (future): <b>${fmt(nextActFilled)}</b> of ${fmt(os.length)}</div>
+  </div>
+  <div class="grid g3">${card("By segment",slaTable(r=>r.segment,"Segment"))}${card("By product",slaTable(r=>r.product,"Product"))}${card("By zone",slaTable(r=>r.zone,"Zone"))}</div>`;
+
+  mkChart("o_bucket",barCfg(buckets,byBucket,false,[PAL[6],PAL[3],PAL[2]],true));
+  mkChart("o_segment",doughnutCfg(["Retail","PB","Tie-up"],["Retail","PB","Tie-up"].map(s=>bySeg.get(s)||0),SEGC));
+  mkChart("o_vtype",doughnutCfg([...byV.keys()],[...byV.values()],PAL));
+  mkChart("o_insurer",barCfg(byInsurer.map(x=>x[0]),byInsurer.map(x=>x[1]),true,PAL,true));
+  const es=$("#o_elapsed");if(es)es.onchange=()=>{state.osElapsed=+es.value;renderOutstanding();};
+  wireTopN(renderOutstanding);
+}
+function osMakeAge(os,key,n){const g=groupBy(os,r=>r[key]);return [...g.entries()].map(([k,arr])=>({k,n:arr.length,age:avg(arr.map(r=>r.aging))})).sort((a,b)=>b.n-a.n).slice(0,n);}
+</script>
+
+<script>
+/* ===== TAB 4 — ASSESSOR (replicates Assessor sheet) ===== */
+function assessorRows(P,scoped){
+  const g=groupBy(scoped,r=>r.assessor); const out=[];
+  const ag=r=>r.created?Math.round((state.asOf-r.created)/86400000):null;
+  g.forEach((mine,a)=>{if(!a||a==="-")return; const meta=DB.aMeta[a]||{};
+    let ftdAlloc=0,mtdAlloc=0,ftdSub=0,sub=0,subP=0,os=0,s05=0,s615=0,sA15=0,aboveSLA=0,w2=0,w4=0,cv=0,osR=0,osT=0,osP=0;
+    const subTATs=[],vroTATs=[],invs=[],setls=[],osAges=[];
+    for(const r of mine){const c=r.created;
+      if(P.isFTD(c))ftdAlloc++; if(P.inCur(c))mtdAlloc++;
+      if(r.finalD){if(P.isFTD(r.finalD))ftdSub++; if(P.inCur(r.finalD)){sub++;subTATs.push(r.subTAT);vroTATs.push(r.vro);invs.push(r.invFSR);setls.push(r.settle);} if(P.inPrev(r.finalD))subP++;}
+      if(r.status==="Outstanding"){os++;const x=ag(r);osAges.push(x);const thr=r.segment==="Tie-up"?15:20;if(x!=null){if(x<=5)s05++;else if(x<=15)s615++;else sA15++;if(x>thr)aboveSLA++;}
+        if(r.vtype==="2W")w2++;else if(r.vtype==="4W")w4++;else if(r.vtype==="CV")cv++; if(r.segment==="Retail")osR++;else if(r.segment==="Tie-up")osT++;else if(r.segment==="PB")osP++;}}
+    const t=(meta.target!=null&&meta.target)||DB.targets.Assessor[a]||0;
+    out.push({a,zone:meta.zone||(mine[0]&&mine[0].zone)||"",tl:meta.tl||"",t,active:(mtdAlloc>0||sub>0),
+      ftdAlloc,mtdAlloc,ftdSub,sub,subP,com:t?sub/t:null,req:t?t-sub:null,os,s05,s615,sA15,p15:os?sA15/os:null,aboveSLA,w2,w4,cv,
+      overallTAT:avg(subTATs),vroTAT:avg(vroTATs),invSub:avg(invs),osTAT:avg(osAges),setl:avg(setls),osRetail:osR,osTie:osT,osPB:osP});});
+  return out;}
+function renderAssessor(){
+  const P=computePeriod(); const allRows=DB.rows;   // global filters do NOT apply here
+  const tlOpts=[...new Set(allRows.map(r=>r.aTL).filter(Boolean))].sort(), zOpts=[...new Set(allRows.map(r=>r.aZone).filter(Boolean))].sort();
+  const f=state.assFilter; const scoped=allRows.filter(r=>(!f.tl||r.aTL===f.tl)&&(!f.zone||r.aZone===f.zone));
+  let rs=assessorRows(P,scoped).filter(x=>x.active).sort((a,b)=>b.sub-a.sub);   // only names active in selected month
+  const totSub=rs.reduce((s,x)=>s+x.sub,0),totTgt=rs.reduce((s,x)=>s+x.t,0),totOS=rs.reduce((s,x)=>s+x.os,0);
+  const elig=rs.filter(x=>x.sub>=5&&x.osTAT!=null&&x.overallTAT!=null);
+  const score=x=>(x.overallTAT||0)+(x.osTAT||0)+((x.vroTAT||0)/60);
+  const ranked=[...elig].sort((a,b)=>score(a)-score(b));
+  const top3=ranked.slice(0,3).map(x=>({name:x.a,...x})), bot3=ranked.slice(-3).reverse().map(x=>({name:x.a,...x}));
+  const topB=rs.slice(0,12);
+
+  $("#page-assessor").innerHTML=`
+  <div class="kpis">
+    ${kpi("Active Assessors",fmt(rs.length),"in "+P.scope,"c1")}
+    ${kpi(P.curLabel+" Submissions",fmt(totSub),deltaSub(totSub,rs.reduce((s,x)=>s+x.subP,0),P.prevLabel),"c2")}
+    ${kpi("Target",fmt(totTgt),totTgt?pct(totSub/totTgt)+" achieved":"from Assessor sheet","c4")}
+    ${kpi("Outstanding",fmt(totOS),"open across assessors","c3")}
+    ${kpi("Above SLA",fmt(rs.reduce((s,x)=>s+x.aboveSLA,0)),"aging breaches","c5")}
+  </div>
+  <div class="sectionhead t2"><span class="eyebrow">Performance · ${P.scope}</span><h2>Top 3 & Bottom 3 assessors</h2><div class="rule"></div></div>
+  <div class="grid g2">
+    <div class="card"><h3><span class="dot"></span>Top 3 — fastest TAT & lowest OS aging</h3>${podium(top3,"good",x=>`Sub TAT ${fmt1(x.overallTAT)}d · OS age ${fmt1(x.osTAT)}d · VRO ${minsToHrs(x.vroTAT)}`)}</div>
+    <div class="card"><h3><span class="dot"></span>Bottom 3 — needs attention</h3>${podium(bot3,"bad",x=>`Sub TAT ${fmt1(x.overallTAT)}d · OS age ${fmt1(x.osTAT)}d · VRO ${minsToHrs(x.vroTAT)}`)}</div>
+  </div>
+  <div class="grid g2" style="margin-top:14px">${card("Submissions vs target",cv("a_com"))}${card("Outstanding aging split",cv("a_os"))}</div>
+
+  <div class="sectionhead t4"><span class="eyebrow">Scorecard</span><h2>Full assessor sheet · filter by TL & Zone</h2><div class="rule"></div></div>
+  <div class="filterbar" style="position:static;margin:0 0 12px;top:auto">
+    <div class="f"><label>TL</label><select id="a_tl"><option value="">All</option>${tlOpts.map(o=>`<option ${o===f.tl?"selected":""}>${o}</option>`).join("")}</select></div>
+    <div class="f"><label>Zone</label><select id="a_zone"><option value="">All</option>${zOpts.map(o=>`<option ${o===f.zone?"selected":""}>${o}</option>`).join("")}</select></div>
+    <div class="scope">${fmt(rs.length)} active assessors · ${P.scope}</div>
+  </div>
+  <div class="card">${table(["Assessor","Zone","TL","TGT","FTD Sub",P.curLabel+" Sub",P.prevLabel,"Com %","Req","FTD Alloc",P.curLabel+" Alloc","OS","0-5","6-15",">15","% >15","2W","4W","CV","Overall TAT(d)","VRO TAT","Inv→Sub(d)","OS TAT(d)","Avg Settle","OS Retail","OS Tie-up","OS PB","Above SLA"],
+    rs.map(x=>`<tr><td>${x.a}</td><td>${x.zone}</td><td>${x.tl}</td><td class="num">${x.t||"–"}</td><td class="num">${x.ftdSub}</td><td class="num">${x.sub}</td><td class="num">${x.subP}</td><td class="num">${x.com==null?"–":pct(x.com)}</td><td class="num">${x.req==null?"–":x.req}</td><td class="num">${x.ftdAlloc}</td><td class="num">${x.mtdAlloc}</td><td class="num">${x.os}</td><td class="num">${x.s05}</td><td class="num">${x.s615}</td><td class="num">${x.sA15}</td><td class="num">${pct(x.p15)}</td><td class="num">${x.w2}</td><td class="num">${x.w4}</td><td class="num">${x.cv}</td><td class="num">${fmt1(x.overallTAT)}</td><td class="num">${minsToHrs(x.vroTAT)}</td><td class="num">${fmt1(x.invSub)}</td><td class="num">${fmt1(x.osTAT)}</td><td class="num">${money(x.setl)}</td><td class="num">${x.osRetail}</td><td class="num">${x.osTie}</td><td class="num">${x.osPB}</td><td class="num">${x.aboveSLA}</td></tr>`).join(""),{x:true})}
+    ${totTgt?"":'<div class="footnote miss">No targets read — ensure the Assessor sheet has a TGT column.</div>'}</div>`;
+  mkChart("a_com",groupedCfg(topB.map(x=>x.a),[{label:"Subs",data:topB.map(x=>x.sub),color:PAL[0]},{label:"Target",data:topB.map(x=>x.t),color:"#dfe3f2"}],true));
+  mkChart("a_os",{type:"bar",data:{labels:topB.map(x=>x.a),datasets:[{label:"0-5",data:topB.map(x=>x.s05),backgroundColor:PAL[6]},{label:"6-15",data:topB.map(x=>x.s615),backgroundColor:PAL[3]},{label:">15",data:topB.map(x=>x.sA15),backgroundColor:PAL[2]}]},options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"top",labels:{boxWidth:11,usePointStyle:true,pointStyle:"rectRounded"}},dl:{on:false}},scales:{x:{stacked:true,grid:{color:"#eef1fa"}},y:{stacked:true,grid:{display:false}}}}});
+  $("#a_tl").onchange=e=>{state.assFilter.tl=e.target.value;renderAssessor();};
+  $("#a_zone").onchange=e=>{state.assFilter.zone=e.target.value;renderAssessor();};
+}
+
+/* ===== TAB 5 — CCE (replicates CCE sheet) ===== */
+function cceRows(P,scoped){
+  const g=groupBy(scoped,r=>r.cce); const out=[];
+  g.forEach((mine,c)=>{if(!c||c==="-")return; const meta=DB.cMeta[c]||{};
+    let surveyPending=0,assignPending=0,outstanding=0,ftd=0,mtd=0,lmtd=0,linkShared=0,surveyCompleted=0;
+    const linkTATs=[],compTATs=[];
+    for(const r of mine){const noAss=(r.assessor===""||r.assessor==="-");
+      if(r.claimStatus==="Deputed")surveyPending++;
+      if(r.claimStatus==="Survey Completed"&&noAss)assignPending++;
+      if(r.status==="Outstanding"&&noAss)outstanding++;
+      if(P.isFTD(r.created))ftd++; if(P.inCur(r.created))mtd++; if(P.inPrev(r.created))lmtd++;
+      if(P.inCur(r.inspDepD)){linkShared++;linkTATs.push(r.link);compTATs.push(r.comp);}
+      if(P.inCur(r.inspCompD))surveyCompleted++;}
+    const otherPending=Math.max(0,outstanding-(surveyPending+assignPending));
+    const t=(meta.target!=null&&meta.target)||DB.targets.CCE[c]||0;
+    out.push({c,zone:meta.zone||(mine[0]&&mine[0].zone)||"",tl:meta.tl||"",t,active:(mtd>0||linkShared>0||surveyCompleted>0),
+      ftd,mtd,lmtd,surveyPending,assignPending,otherPending,outstanding,linkShared,surveyCompleted,linkTAT:avg(linkTATs),compTAT:avg(compTATs)});});
+  return out;}
+function renderCCE(){
+  const P=computePeriod(); const allRows=DB.rows;   // global filters do NOT apply here
+  const tlOpts=[...new Set(allRows.map(r=>r.cTL).filter(Boolean))].sort(), zOpts=[...new Set(allRows.map(r=>r.cZone).filter(Boolean))].sort();
+  const f=state.cceFilter; const scoped=allRows.filter(r=>(!f.tl||r.cTL===f.tl)&&(!f.zone||r.cZone===f.zone));
+  let rs=cceRows(P,scoped).filter(x=>x.active).sort((a,b)=>b.mtd-a.mtd);
+  const totMtd=rs.reduce((s,x)=>s+x.mtd,0),totTgt=rs.reduce((s,x)=>s+x.t,0),totOS=rs.reduce((s,x)=>s+x.outstanding,0);
+  const elig=rs.filter(x=>x.linkShared>=5&&x.linkTAT!=null&&x.compTAT!=null);
+  const score=x=>(x.linkTAT||0)+(x.compTAT||0);
+  const ranked=[...elig].sort((a,b)=>score(a)-score(b));
+  const top3=ranked.slice(0,3).map(x=>({name:x.c,...x})), bot3=ranked.slice(-3).reverse().map(x=>({name:x.c,...x}));
+  const topB=rs.slice(0,12);
+  $("#page-cce").innerHTML=`
+  <div class="kpis">
+    ${kpi("Active CCEs",fmt(rs.length),"in "+P.scope,"c1")}
+    ${kpi(P.curLabel+" Handled",fmt(totMtd),deltaSub(totMtd,rs.reduce((s,x)=>s+x.lmtd,0),P.prevLabel),"c2")}
+    ${kpi("Target",fmt(totTgt),totTgt?pct(totMtd/totTgt):"from CCE sheet","c4")}
+    ${kpi("Outstanding",fmt(totOS),"in CCE pipeline","c3")}
+    ${kpi("Survey / Assign Pending",`${fmt(rs.reduce((s,x)=>s+x.surveyPending,0))} / ${fmt(rs.reduce((s,x)=>s+x.assignPending,0))}`,"pending actions","c5")}
+  </div>
+  <div class="sectionhead t2"><span class="eyebrow">Performance · ${P.scope}</span><h2>Top 3 & Bottom 3 CCE — fastest link & survey TAT</h2><div class="rule"></div></div>
+  <div class="grid g2">
+    <div class="card"><h3><span class="dot"></span>Top 3 CCE</h3>${podium(top3,"good",x=>`Link ${minsToHrs(x.linkTAT)} · Survey ${minsToHrs(x.compTAT)}`)}</div>
+    <div class="card"><h3><span class="dot"></span>Bottom 3 CCE</h3>${podium(bot3,"bad",x=>`Link ${minsToHrs(x.linkTAT)} · Survey ${minsToHrs(x.compTAT)}`)}</div>
+  </div>
+  <div class="grid g2" style="margin-top:14px">${card("Handled vs target",cv("c_com"))}${card("Pipeline split",cv("c_pipe"))}</div>
+  <div class="sectionhead t4"><span class="eyebrow">Scorecard</span><h2>Full CCE sheet · filter by TL & Zone</h2><div class="rule"></div></div>
+  <div class="filterbar" style="position:static;margin:0 0 12px;top:auto">
+    <div class="f"><label>TL</label><select id="c_tl"><option value="">All</option>${tlOpts.map(o=>`<option ${o===f.tl?"selected":""}>${o}</option>`).join("")}</select></div>
+    <div class="f"><label>Zone</label><select id="c_zone"><option value="">All</option>${zOpts.map(o=>`<option ${o===f.zone?"selected":""}>${o}</option>`).join("")}</select></div>
+    <div class="scope">${fmt(rs.length)} active CCEs · ${P.scope}</div>
+  </div>
+  <div class="card">${table(["CCE","Zone","TL","TGT","FTD",P.curLabel,P.prevLabel,"Survey Pend","Assign Pend","Other Pend","Outstanding","Link Shared","Survey Comp","Link TAT","Survey TAT"],
+    rs.map(x=>`<tr><td>${x.c}</td><td>${x.zone}</td><td>${x.tl}</td><td class="num">${x.t||"–"}</td><td class="num">${x.ftd}</td><td class="num">${x.mtd}</td><td class="num">${x.lmtd}</td><td class="num">${x.surveyPending}</td><td class="num">${x.assignPending}</td><td class="num">${x.otherPending}</td><td class="num">${x.outstanding}</td><td class="num">${x.linkShared}</td><td class="num">${x.surveyCompleted}</td><td class="num">${minsToHrs(x.linkTAT)}</td><td class="num">${minsToHrs(x.compTAT)}</td></tr>`).join(""),{x:true})}
+    ${totTgt?"":'<div class="footnote miss">No targets read — ensure the CCE sheet has a TGT column.</div>'}</div>`;
+  mkChart("c_com",groupedCfg(topB.map(x=>x.c),[{label:P.curLabel,data:topB.map(x=>x.mtd),color:PAL[7]},{label:"Target",data:topB.map(x=>x.t),color:"#dfe3f2"}],true));
+  mkChart("c_pipe",{type:"bar",data:{labels:topB.map(x=>x.c),datasets:[{label:"Survey Pend",data:topB.map(x=>x.surveyPending),backgroundColor:PAL[3]},{label:"Assign Pend",data:topB.map(x=>x.assignPending),backgroundColor:PAL[5]},{label:"Other",data:topB.map(x=>x.otherPending),backgroundColor:PAL[1]}]},options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"top",labels:{boxWidth:11,usePointStyle:true,pointStyle:"rectRounded"}},dl:{on:false}},scales:{x:{stacked:true,grid:{color:"#eef1fa"}},y:{stacked:true,grid:{display:false}}}}});
+  $("#c_tl").onchange=e=>{state.cceFilter.tl=e.target.value;renderCCE();};
+  $("#c_zone").onchange=e=>{state.cceFilter.zone=e.target.value;renderCCE();};
+}
+
+/* ===== TAB 6 — UPLOADING ===== */
+function renderUpload(){
+  const P=computePeriod(); const upl=DB.upl||[];
+  if(!upl.length){$("#page-upload").innerHTML=`<div class="empty"><div class="big">No upload data</div><div class="hint">Needs the <code>Upl. Base</code> sheet.</div></div>`;return;}
+  const cur=upl.filter(u=>P.inCur(u.date)),prev=upl.filter(u=>P.inPrev(u.date)),ftd=upl.filter(u=>P.isFTD(u.date));
+  const matched=cur.filter(u=>u.matched&&u.tatDays!=null),avgT=avg(matched.map(u=>u.tatDays)),avgTw=avg(matched.map(u=>u.tatWork));
+  const wd=workdays(P.curStart,P.curEnd);
+  const names=[...new Set(cur.map(u=>u.name).filter(Boolean))];
+  const rs=names.map(nm=>{const g=cur.filter(u=>u.name===nm),gm=g.filter(u=>u.tatDays!=null);return {nm,ftd:g.filter(u=>P.isFTD(u.date)).length,n:g.length,ni:g.filter(u=>u.insurer==="New India").length,un:g.filter(u=>u.insurer==="United").length,avgDay:wd?g.length/wd:null,tat:avg(gm.map(u=>u.tatDays)),tatw:avg(gm.map(u=>u.tatWork))};}).sort((a,b)=>b.n-a.n);
+  const ins={"New India":cur.filter(u=>u.insurer==="New India").length,"United":cur.filter(u=>u.insurer==="United").length};
+  const bkL=["0 days","1 day","2-3 days","4-7 days","8+ days"],bk=[0,0,0,0,0];
+  matched.forEach(u=>{const t=u.tatDays;if(t<=0)bk[0]++;else if(t===1)bk[1]++;else if(t<=3)bk[2]++;else if(t<=7)bk[3]++;else bk[4]++;});
+  // weekday trend (Mon..Sun)
+  const dow=[0,0,0,0,0,0,0]; cur.forEach(u=>{if(u.date)dow[u.date.getDay()]++;});
+  const order=[1,2,3,4,5,6,0]; const dowL=order.map(i=>DOW[i]), dowD=order.map(i=>dow[i]);
+  const unmatched=cur.filter(u=>!u.matched).length, top=rs.slice(0,12);
+
+  $("#page-upload").innerHTML=`
+  <div class="kpis">
+    ${kpi("FTD Uploaded",fmt(ftd.length),`as of ${dayKey(state.asOf)}`,"c1")}
+    ${kpi(P.curLabel+" Uploaded",fmt(cur.length),deltaSub(cur.length,prev.length,P.prevLabel),"c2")}
+    ${kpi("Avg Upload TAT",fmt1(avgT)+" d",fmt1(avgTw)+" wd (FSR→upload)","c4")}
+    ${kpi("Matched to Base",pct(matched.length/(cur.length||1)),`${fmt(unmatched)} unmatched`,"c3")}
+    ${kpi("New India / United",`${fmt(ins["New India"])} / ${fmt(ins["United"])}`,"insurer split","c5")}
+  </div>
+  <div class="sectionhead t2"><span class="eyebrow">Throughput</span><h2>By person, insurer & weekday</h2><div class="rule"></div></div>
+  <div class="grid g3">${card("Uploader-wise volume",cv("u_vol"))}${card("Insurer split",cv("u_ins"))}<div class="card tall"><h3><span class="dot"></span>Weekday trend</h3>${cv("u_dow")}</div></div>
+  <div class="sectionhead t3"><span class="eyebrow">Lag</span><h2>FSR → Upload TAT</h2><div class="rule"></div></div>
+  <div class="grid g2">${card("Upload TAT distribution",cv("u_tat"))}${card("Uploader avg TAT",cv("u_tatper"))}</div>
+  <div class="sectionhead t4"><span class="eyebrow">Scorecard</span><h2>Uploading team</h2><div class="rule"></div></div>
+  <div class="card">${table(["Uploader","FTD",P.curLabel,"Avg/Day","New India","United","Avg TAT(d)","Avg TAT(wd)"],rs.map(x=>`<tr><td>${x.nm}</td><td class="num">${x.ftd}</td><td class="num">${x.n}</td><td class="num">${fmt1(x.avgDay)}</td><td class="num">${x.ni}</td><td class="num">${x.un}</td><td class="num">${fmt1(x.tat)}</td><td class="num">${fmt1(x.tatw)}</td></tr>`).join("")||emptyRow(8))}
+    <div class="footnote">TAT = Final Report Date (Base AW) → upload Date. ${unmatched?`<span class="miss">${unmatched} unmatched, excluded from TAT.</span>`:""}</div></div>`;
+  mkChart("u_vol",barCfg(top.map(x=>x.nm),top.map(x=>x.n),true,PAL,true));
+  mkChart("u_ins",doughnutCfg(["New India","United"],[ins["New India"],ins["United"]],[PAL[2],PAL[1]]));
+  mkChart("u_dow",barCfg(dowL,dowD,false,PAL,true));
+  mkChart("u_tat",barCfg(bkL,bk,false,[PAL[6],PAL[1],PAL[3],PAL[2],PAL[7]],true));
+  mkChart("u_tatper",barCfg(top.map(x=>x.nm),top.map(x=>Math.round((x.tat||0)*10)/10),true,PAL,true));
+}
+
+/* ===== TAB 7 — HUB ===== */
+function renderHub(){
+  const P=computePeriod(); const all=univ("zone"); const tgt=DB.targets.Branch||{};
+  const agg=new Map(); const zoneMix=new Map();
+  for(const r of all){const b=r.branch;if(!b)continue;let a=agg.get(b);if(!a){a={intim:0,sub:0,os:0};agg.set(b,a);}
+    if(P.inCur(r.created)){a.intim++;zoneMix.set(r.zone,(zoneMix.get(r.zone)||0)+1);}
+    if(r.finalD&&P.inCur(r.finalD))a.sub++; if(r.status==="Outstanding")a.os++;}
+  const metaByOffice=new Map(); DB.hubRows.forEach(o=>{if(o.office&&!metaByOffice.has(o.office))metaByOffice.set(o.office,o);});
+  const offices=new Set([...metaByOffice.keys(),...agg.keys()]);
+  const rs=[...offices].filter(Boolean).map(off=>{const m=metaByOffice.get(off)||{};const a=agg.get(off)||{intim:0,sub:0,os:0};const t=tgt[off]||0;
+    return {off,zone:m.zone||"",insurer:m.insurer||"",cls:m.classification||"",ro:m.roName||"",state:m.state||"",approved:m.approved||"",t,intim:a.intim,sub:a.sub,os:a.os,com:t?a.sub/t:null};}).filter(x=>x.intim||x.sub||x.os||x.t).sort((a,b)=>b.intim-a.intim);
+  const totT=rs.reduce((s,x)=>s+x.t,0),totSub=rs.reduce((s,x)=>s+x.sub,0),totIntim=rs.reduce((s,x)=>s+x.intim,0),totOS=rs.reduce((s,x)=>s+x.os,0);
+  const top=rs.slice(0,12);
+  $("#page-hub").innerHTML=`
+  <div class="kpis">
+    ${kpi("Active Hubs",fmt(rs.length),"with activity / target","c1")}
+    ${kpi(P.curLabel+" Intimation",fmt(totIntim),"across hubs","c2")}
+    ${kpi(P.curLabel+" Submission",fmt(totSub),totT?pct(totSub/totT)+" of target":"—","c4")}
+    ${kpi("Outstanding",fmt(totOS),"open across hubs","c3")}
+    ${kpi("Total Target",fmt(totT),"Hub col K","c5")}
+  </div>
+  <div class="sectionhead t2"><span class="eyebrow">Distribution</span><h2>Zone intimation · top hubs vs target</h2><div class="rule"></div></div>
+  <div class="grid g2">${card("Zone-wise intimation",cv("h_zone"))}${card("Top hubs — submission vs target",cv("h_tgt"))}</div>
+  <div class="sectionhead t4"><span class="eyebrow">Master</span><h2>Hub details</h2><div class="rule"></div></div>
+  <div class="card">${table(["Hub (Office)","Insurer","Zone","Classification","RO","State","Approved","Target",P.curLabel+" Intim",P.curLabel+" Sub","OS","Com %"],
+    rs.map(x=>`<tr><td>${x.off}</td><td>${x.insurer}</td><td>${x.zone}</td><td>${x.cls}</td><td>${x.ro}</td><td>${x.state}</td><td>${x.approved?`<span class="badge ${has(x.approved,'Unapp')?'b-un':'b-ap'}">${x.approved}</span>`:"–"}</td><td class="num">${x.t||"–"}</td><td class="num">${x.intim}</td><td class="num">${x.sub}</td><td class="num">${x.os}</td><td class="num">${x.com==null?"–":pct(x.com)}</td></tr>`).join(""),{x:true})}</div>`;
+  mkChart("h_zone",barCfg([...zoneMix.keys()],[...zoneMix.values()],true,PAL,true));
+  mkChart("h_tgt",groupedCfg(top.map(x=>x.off),[{label:"Sub",data:top.map(x=>x.sub),color:PAL[1]},{label:"Target",data:top.map(x=>x.t),color:"#dfe3f2"}],true));
+}
+
+/* ===== TAB 8 — RO (replicates Insurer sheet) ===== */
+const roCat=m=>m>200?"Above 200":m>100?"100-200":m>50?"50-100":m>20?"20-50":"Minimal";
+function renderRO(){
+  const P=computePeriod(); const all=univ("zone"); const P3=prev3(), p3h=P3.map(mLabel);
+  const curMK=monKey(P.curEnd);
+  const agg=new Map();
+  const bump=(k)=>{let a=agg.get(k);if(!a){a={ftd:0,cur:0,prev:0,m0:0,m1:0,m2:0,os:0,s05:0,s615:0,sA15:0,mc:new Map()};agg.set(k,a);}return a;};
+  for(const r of all){const k=r.roKey;if(!k)continue;const a=bump(k);const c=r.created;
+    if(c){const mk=monKey(c);if(mk<=curMK)a.mc.set(mk,(a.mc.get(mk)||0)+1);
+      if(P.isFTD(c))a.ftd++; if(P.inCur(c))a.cur++; if(P.inPrev(c))a.prev++;
+      if(inMonth(c,P3[0]))a.m0++; if(inMonth(c,P3[1]))a.m1++; if(inMonth(c,P3[2]))a.m2++;}
+    if(r.status==="Outstanding"){a.os++;const x=c?Math.round((state.asOf-c)/86400000):null;if(x!=null){if(x<=5)a.s05++;else if(x<=15)a.s615++;else a.sA15++;}}}
+  // RO masters from Hub (target + meta)
+  const metaByRO=new Map(); DB.hubRows.forEach(o=>{if(o.roKey){if(!metaByRO.has(o.roKey))metaByRO.set(o.roKey,{...o,target:0});metaByRO.get(o.roKey).target+=o.target||0;}});
+  const keys=new Set([...agg.keys(),...metaByRO.keys()]);
+  const roParts=k=>{const i=k.lastIndexOf("|");return i<0?[k,""]:[k.slice(0,i),k.slice(i+1)];};
+  const rs=[...keys].map(k=>{const [roName,insurer]=roParts(k);const m=metaByRO.get(k)||{};const a=agg.get(k)||{ftd:0,cur:0,prev:0,m0:0,m1:0,m2:0,os:0,s05:0,s615:0,sA15:0,mc:new Map()};
+    const maxMonth=a.mc.size?Math.max(...a.mc.values()):0; const act=DB.roFirst[roName];const tgt=m.target||0;
+    return {roName,insurer,responsible:m.responsible||"",roCode:m.roCode||"",state:m.state||"",zone:m.zone||"",approved:m.approved||"",
+      activation:act?mLabel(act):"–",max:maxMonth,cat:roCat(maxMonth),tgt,ftd:a.ftd,mtd:a.cur,lmtd:a.prev,m0:a.m0,m1:a.m1,m2:a.m2,
+      com:tgt?a.cur/tgt:null,grown:a.cur-a.prev,os:a.os,s05:a.s05,s615:a.s615,sA15:a.sA15,beyond15:a.os?a.sA15/a.os:null};
+  }).filter(x=>x.mtd||x.os||x.tgt||x.lmtd).sort((a,b)=>b.mtd-a.mtd);
+  const totTgt=rs.reduce((s,x)=>s+x.tgt,0),totMtd=rs.reduce((s,x)=>s+x.mtd,0),totOS=rs.reduce((s,x)=>s+x.os,0);
+  const catCount=tally(rs,x=>x.cat); const catOrder=["Above 200","100-200","50-100","20-50","Minimal"]; const top=rs.slice(0,12);
+  $("#page-ro").innerHTML=`
+  <div class="kpis">
+    ${kpi("ROs",fmt(rs.length),"in scope","c1")}
+    ${kpi(P.curLabel+" Intimation",fmt(totMtd),"across ROs","c2")}
+    ${kpi("Target",fmt(totTgt),totTgt?pct(totMtd/totTgt)+" achieved":"Hub col K","c4")}
+    ${kpi("Outstanding",fmt(totOS),"open across ROs","c3")}
+    ${kpi("Grown ROs",fmt(rs.filter(x=>x.grown>0).length),"vs "+P.prevLabel,"c5")}
+  </div>
+  <div class="sectionhead t2"><span class="eyebrow">Categories</span><h2>RO category (by peak month) & target</h2><div class="rule"></div></div>
+  <div class="grid g2">${card("RO category distribution",cv("r_cat"))}${card("Top ROs — intimation vs target",cv("r_tgt"))}</div>
+  <div class="sectionhead t4"><span class="eyebrow">Master</span><h2>RO performance (Insurer sheet)</h2><div class="rule"></div></div>
+  <div class="card">${table(["RO Name","Insurer","Responsible","Zone","State","Approved","Activation","Max","Category","TGT","FTD",P.curLabel,P.prevLabel,...p3h,"Com %","Grown","OS","0-5","6-15",">15","Beyond 15%"],
+    rs.map(x=>`<tr><td>${x.roName}</td><td>${x.insurer}</td><td>${x.responsible}</td><td>${x.zone}</td><td>${x.state}</td><td>${x.approved?`<span class="badge ${has(x.approved,'Unapp')?'b-un':'b-ap'}">${x.approved}</span>`:"–"}</td><td>${x.activation}</td><td class="num">${x.max}</td><td>${x.cat}</td><td class="num">${x.tgt||"–"}</td><td class="num">${x.ftd}</td><td class="num">${x.mtd}</td><td class="num">${x.lmtd}</td><td class="num">${x.m0}</td><td class="num">${x.m1}</td><td class="num">${x.m2}</td><td class="num">${x.com==null?"–":pct(x.com)}</td><td class="num ${x.grown>=0?'delta-up':'delta-dn'}">${x.grown>=0?"+":""}${x.grown}</td><td class="num">${x.os}</td><td class="num">${x.s05}</td><td class="num">${x.s615}</td><td class="num">${x.sA15}</td><td class="num">${pct(x.beyond15)}</td></tr>`).join(""),{x:true})}</div>`;
+  mkChart("r_cat",barCfg(catOrder,catOrder.map(c=>catCount.get(c)||0),false,PAL,true));
+  mkChart("r_tgt",groupedCfg(top.map(x=>x.roName),[{label:P.curLabel,data:top.map(x=>x.mtd),color:PAL[0]},{label:"Target",data:top.map(x=>x.tgt),color:"#dfe3f2"}],true));
+}
+
+/* ===== PART 4 — boot / routing / filters ===== */
+const state={asOf:null,activeN:1,fyMode:false,fy:null,flt:{insurer:"",zone:"",segment:"",vtype:""},osElapsed:5,subAFilter:{tl:"",zone:""},assFilter:{tl:"",zone:""},cceFilter:{tl:"",zone:""}};
+const RENDER={intimation:renderIntimation,submission:renderSubmission,outstanding:renderOutstanding,assessor:renderAssessor,cce:renderCCE,upload:renderUpload,hub:renderHub,ro:renderRO};
+let current="intimation";
+function renderCurrent(){clearCharts();try{RENDER[current]();}catch(e){console.error(e);toast("Render error: "+e.message);}updateScope();}
+function updateScope(){const P=computePeriod();$("#scopeNote").innerHTML=`Scope: <b>${P.scope}</b>`;}
+function switchTab(t){current=t;$$("nav.tabs button").forEach(b=>b.classList.toggle("active",b.dataset.tab===t));$$(".page").forEach(p=>p.classList.remove("active"));$("#page-"+t).classList.add("active");
+  $("#filterbar").style.display=(["assessor","cce","upload"].includes(t))?"none":"flex";renderCurrent();}
+$$("nav.tabs button").forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
+function fillFilters(){const opts=(sel,vals)=>{const el=$(sel),cur=el.value;el.innerHTML='<option value="">All</option>'+vals.map(v=>`<option ${v===cur?"selected":""}>${v}</option>`).join("");};
+  opts("#flt_insurer",[...new Set(DB.rows.map(r=>r.insurer).filter(Boolean))].sort());
+  opts("#flt_zone",[...new Set(DB.rows.map(r=>r.zone).filter(Boolean))].sort());
+  opts("#flt_segment",["Retail","PB","Tie-up"].filter(s=>DB.rows.some(r=>r.segment===s)));
+  opts("#flt_vtype",[...new Set(DB.rows.map(r=>r.vtype).filter(v=>v&&v!=="—"))].sort());}
+["insurer","zone","segment","vtype"].forEach(k=>{$("#flt_"+k).onchange=e=>{state.flt[k]=e.target.value;renderCurrent();};});
+$("#fltReset").onclick=()=>{state.flt={insurer:"",zone:"",segment:"",vtype:""};["insurer","zone","segment","vtype"].forEach(k=>$("#flt_"+k).value="");renderCurrent();};
+$("#activeN").onchange=()=>{state.activeN=+$("#activeN").value;if(current==="intimation")renderCurrent();};
+$("#asOf").onchange=()=>{const d=parseDate($("#asOf").value);if(d){state.asOf=d;syncMonthSel();renderCurrent();}};
+$("#monthSel").onchange=()=>{const mk=+$("#monthSel").value;const y=Math.floor(mk/12),mo=mk%12;const last=new Date(y,mo+1,0);const end=(DB.maxDate<last&&DB.maxDate>=new Date(y,mo,1))?DB.maxDate:last;state.asOf=end;$("#asOf").value=dayKey(end);renderCurrent();};
+function syncMonthSel(){$("#monthSel").value=monKey(state.asOf);}
+$("#fySwitch").onclick=()=>{state.fyMode=!state.fyMode;$("#fySwitch").classList.toggle("on",state.fyMode);$("#fySel").style.display=state.fyMode?"":"none";$("#monthCtrl").style.opacity=state.fyMode?.5:1;renderCurrent();};
+$("#fySel").onchange=()=>{state.fy=+$("#fySel").value;renderCurrent();};
+
+function loadFile(file){$("#loadMsg").textContent="Reading "+file.name+" …";const fr=new FileReader();
+  fr.onload=e=>{try{const wb=XLSX.read(new Uint8Array(e.target.result),{type:"array",cellDates:true});DB=buildModel(wb);
+    state.asOf=new Date(DB.maxDate);state.fy=DB.fys.length?DB.fys[DB.fys.length-1]:fyStartYear(DB.maxDate);
+    $("#asOf").value=dayKey(state.asOf);$("#asOf").max=dayKey(DB.maxDate);
+    $("#activeN").innerHTML=Array.from({length:10},(_,i)=>`<option>${i+1}</option>`).join("");
+    $("#monthSel").innerHTML=DB.months.map(mk=>`<option value="${mk}">${mLabel(new Date(Math.floor(mk/12),mk%12,1))}</option>`).join("");
+    syncMonthSel();
+    $("#fySel").innerHTML=DB.fys.map(y=>`<option value="${y}" ${y===state.fy?"selected":""}>${fyLabel(y)}</option>`).join("");
+    $("#fileName").textContent=file.name+" · "+fmt(DB.rows.length)+" rows";
+    ["#fyCtrl","#monthCtrl","#dateCtrl","#activeCtrl"].forEach(s=>$(s).style.display="flex");
+    $("#tabs").style.display="flex";$("#filterbar").style.display="flex";$("#landing").style.display="none";
+    fillFilters();
+    const nA=Object.keys(DB.aMeta).length,nC=Object.keys(DB.cMeta).length;
+    toast("Loaded "+fmt(DB.rows.length)+" cases · "+nA+" assessors · "+nC+" CCEs");
+    switchTab("intimation");
+  }catch(err){console.error(err);$("#loadMsg").innerHTML='<span class="miss">Could not read file: '+err.message+'</span>';toast("Error: "+err.message);}};
+  fr.readAsArrayBuffer(file);}
+["#uploadBtn","#uploadBtn2"].forEach(s=>$(s).onclick=()=>$("#file").click());
+$("#file").onchange=e=>{if(e.target.files[0])loadFile(e.target.files[0]);};
+const drop=$("#drop");["dragover","dragenter"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("hot");}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("hot");}));
+drop.addEventListener("drop",e=>{if(e.dataTransfer.files[0])loadFile(e.dataTransfer.files[0]);});
+</script>
+</body>
+</html>
